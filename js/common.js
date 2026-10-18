@@ -11,8 +11,8 @@
   const LANGS = window.CineAuraLangs || ["en", "ar", "fr", "de", "es", "nl", "it"];
   const TMDB_LANG = { en: "en-US", ar: "ar-SA", fr: "fr-FR", de: "de-DE", es: "es-ES", nl: "nl-NL", it: "it-IT" };
   const LOCALE = { en: "en-US", ar: "ar", fr: "fr-FR", de: "de-DE", es: "es-ES", nl: "nl-NL", it: "it-IT" };
-  const SUPABASE_URL = "https://mxdsgnlmfpaekgmswjou.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_FZmzR3yk_CR5j9jH191AVQ_NQivMZ-Q";
+  const SUPABASE_URL = "https://samazxadqggoeilaqfdp.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_UZ74c-sHOywW9lOfErwXuA_GtMtvYYY";
 
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -1694,8 +1694,8 @@
      replaced with the username and password of a premium IPTV account: typed on
      the page, or found with a watch code (sql/iptv_premium.sql). */
   const IPTV_LISTS = {
-    free: { key: "free", name: "IPTV-Free", url: "https://mxdsgnlmfpaekgmswjou.supabase.co/storage/v1/object/public/IPTV/IPTV-Free.m3u" },
-    premium: { key: "premium", name: "IPTV-Premium", url: "https://mxdsgnlmfpaekgmswjou.supabase.co/storage/v1/object/public/IPTV/IPTV-Premuim.m3u" },
+    free: { key: "free", name: "IPTV-Free", url: "https://samazxadqggoeilaqfdp.supabase.co/storage/v1/object/public/IPTV/IPTV-Free.m3u" },
+    premium: { key: "premium", name: "IPTV-Premium", url: "https://samazxadqggoeilaqfdp.supabase.co/storage/v1/object/public/IPTV/IPTV-Premuim.m3u" },
   };
 
   const SLOT_USER = /^username$/i;
