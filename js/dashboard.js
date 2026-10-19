@@ -24,6 +24,7 @@
     translateDom,
     getLang,
     getTheme,
+    getStyle,
     validWatchUrl,
     linkQualityOptions,
     qualityPickerHtml,
@@ -3197,6 +3198,27 @@
             </select>
           </div>
           <div class="set-site stack">
+            <span class="sset-lbl" id="s-style-lbl">${t("set.style")}</span>
+            <p class="sset-hint">${t("set.styleHint")}</p>
+            <select id="s-style">
+              <option value="default">✨ Default — CineAura glass</option>
+              <option value="facebook">f Facebook</option>
+              <option value="youtube">▶ YouTube</option>
+              <option value="instagram">◎ Instagram</option>
+              <option value="netflix">N Netflix</option>
+              <option value="prime">P Prime Video</option>
+              <option value="appletv"> Apple TV+</option>
+              <option value="win7">▭ Windows 7 Aero</option>
+              <option value="win8">⊞ Windows 8 Metro</option>
+              <option value="win10">▣ Windows 10 Fluent</option>
+              <option value="win11">⊞ Windows 11 Mica</option>
+              <option value="macos">● macOS Tahoe</option>
+              <option value="android">🤖 Android Material</option>
+              <option value="ios">◐ iOS</option>
+            </select>
+            <div id="s-style-grid" class="sset-themes-grid" role="radiogroup" aria-labelledby="s-style-lbl"></div>
+          </div>
+          <div class="set-site stack">
             <label class="sset-lbl" for="s-site-country">${t("set.country")}</label>
             <select id="s-site-country"></select>
             <p class="sset-hint" id="s-geo-hint" aria-live="polite"></p>
@@ -3241,8 +3263,36 @@
     });
     $("#s-theme").value = getTheme();
     $("#s-lang").value = getLang();
+    try{ const _sEl=$("#s-style"); if(_sEl){ _sEl.value = (C.getStyle?C.getStyle(): (window.CineauraTheme&&window.CineauraTheme.getStyle?window.CineauraTheme.getStyle(): "default")); _sEl.onchange=()=> saveAppearancePreference("style", _sEl.value); } }catch{}
     $("#s-theme").onchange = () => saveAppearancePreference("theme", $("#s-theme").value);
     $("#s-lang").onchange = () => saveAppearancePreference("language", $("#s-lang").value);
+    // Render visual theme grid inside dashboard appearance tab
+    try{
+      const grid=$("#s-style-grid");
+      if(grid){
+        const renderGrid = ()=>{
+          if(window.CineauraTheme && typeof window.CineauraTheme.renderPicker==="function"){
+            window.CineauraTheme.renderPicker(grid, (C.getStyle?C.getStyle():window.CineauraTheme.getStyle()));
+            grid.querySelectorAll("[data-style-pick]").forEach(btn=>{
+              btn.addEventListener("click", ()=>{
+                const v=btn.getAttribute("data-style-pick");
+                const sel=$("#s-style"); if(sel) sel.value=v;
+                saveAppearancePreference("style", v);
+                grid.querySelectorAll("[data-style-pick]").forEach(x=> x.classList.toggle("active", x.getAttribute("data-style-pick")===v));
+              });
+            });
+          } else {
+            // fallback simple sync: highlight active via select
+            const cur=(C.getStyle?C.getStyle():"default");
+            grid.querySelectorAll("[data-style-pick]").forEach(x=> x.classList.toggle("active", x.getAttribute("data-style-pick")===cur));
+          }
+        };
+        renderGrid();
+        // re-render when style changes elsewhere
+        document.addEventListener("cineaura:prefs", renderGrid);
+        document.addEventListener("cineaura:style", renderGrid);
+      }
+    }catch{}
     wireSiteSettings(main);
     $("#copy-rec").onclick = async () => {
       if (!m.recovery_code) return toast(t("dash.noRec"));
@@ -3256,6 +3306,7 @@
         theme: $("#s-theme").value,
         language: $("#s-lang").value,
         region: $("#s-region").value.trim(),
+        style: ($("#s-style")?.value || (C.getStyle?C.getStyle():"default")),
       };
       const profileSave = writeProfileSettings(body);
       const mem = { full_name: $("#s-name").value.trim(), email: $("#s-email").value.trim().toLowerCase() };

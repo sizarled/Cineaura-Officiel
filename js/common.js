@@ -8,6 +8,24 @@
   const REFERRAL_TTL_MS = 30 * 24 * 60 * 60 * 1000;
   const LANG_KEY = "cineaura_lang";
   const THEME_KEY = "cineaura_theme";
+  const STYLE_KEY = "cineaura_style";
+  const STYLE_VALS = ["default","facebook","youtube","instagram","netflix","prime","appletv","win7","win8","win10","win11","macos","android","ios"];
+  const STYLE_META = {
+    default:{ label:"Default", sub:"Glass", icon:"✨", bar:"#01b4e4", body:"#0d253f" },
+    facebook:{ label:"Facebook", sub:"Social", icon:"f", bar:"#1877f2", body:"#f0f2f5" },
+    youtube:{ label:"YouTube", sub:"Tube", icon:"▶", bar:"#ff0000", body:"#0f0f0f" },
+    instagram:{ label:"Instagram", sub:"Gradient", icon:"◎", bar:"#d62976", body:"#000" },
+    netflix:{ label:"Netflix", sub:"Cinema", icon:"N", bar:"#e50914", body:"#000" },
+    prime:{ label:"Prime Video", sub:"Prime", icon:"P", bar:"#00a8e1", body:"#0a1628" },
+    appletv:{ label:"Apple TV+", sub:"tvOS", icon:"", bar:"#000", body:"#1c1c1e" },
+    win7:{ label:"Windows 7", sub:"Aero", icon:"▭", bar:"#2a7bd8", body:"#a9d0f0" },
+    win8:{ label:"Windows 8", sub:"Metro", icon:"⊞", bar:"#0078d7", body:"#0078d7" },
+    win10:{ label:"Windows 10", sub:"Fluent", icon:"▣", bar:"#0078d4", body:"#f3f3f3" },
+    win11:{ label:"Windows 11", sub:"Mica", icon:"⊞", bar:"#0067c0", body:"#f3f3f3" },
+    macos:{ label:"macOS", sub:"Tahoe", icon:"●", bar:"#007aff", body:"#ececef" },
+    android:{ label:"Android", sub:"Material", icon:"🤖", bar:"#3ddc84", body:"#141218" },
+    ios:{ label:"iOS", sub:"iPhone", icon:"◐", bar:"#007aff", body:"#f2f2f7" },
+  };
   const LANGS = window.CineAuraLangs || ["en", "ar", "fr", "de", "es", "nl", "it"];
   const TMDB_LANG = { en: "en-US", ar: "ar-SA", fr: "fr-FR", de: "de-DE", es: "es-ES", nl: "nl-NL", it: "it-IT" };
   const LOCALE = { en: "en-US", ar: "ar", fr: "fr-FR", de: "de-DE", es: "es-ES", nl: "nl-NL", it: "it-IT" };
@@ -139,6 +157,7 @@
 
   let activeLang = null;
   let activeTheme = null;
+  let activeStyle = null;
   // Ignore an older profile-preference request if a newer setting was applied
   // while that request was still in flight (for example, during dashboard boot).
   let prefsRevision = 0;
@@ -155,6 +174,13 @@
     const stored = localStorage.getItem(THEME_KEY);
     return stored === "day" ? "day" : "night";
   }
+
+  function getStyle(){
+    if(activeStyle && STYLE_VALS.includes(activeStyle)) return activeStyle;
+    try{ const s=localStorage.getItem(STYLE_KEY); if(STYLE_VALS.includes(s)) return s; }catch{}
+    return "default";
+  }
+  function getStyles(){ return STYLE_VALS.slice(); }
 
   function getLocale() {
     return LOCALE[getLang()] || "en-US";
@@ -216,7 +242,7 @@
     if (titleEl) document.title = t(titleEl.getAttribute("data-i18n-title"));
   }
 
-  function applyPrefs({ language, theme, persist = true } = {}) {
+  function applyPrefs({ language, theme, style, persist = true } = {}) {
     let changed = false;
     if (language && LANGS.includes(language)) {
       activeLang = language;
@@ -228,11 +254,18 @@
       if (persist) localStorage.setItem(THEME_KEY, theme);
       changed = true;
     }
+    if (style && STYLE_VALS.includes(style)) {
+      activeStyle = style;
+      if (persist) try{ localStorage.setItem(STYLE_KEY, style); }catch{}
+      changed = true;
+    }
     if (changed) prefsRevision++;
     const lang = getLang();
     const mode = getTheme();
+    const st = getStyle();
     const html = document.documentElement;
     html.dataset.theme = mode;
+    html.dataset.style = st;
     html.lang = lang;
     html.dir = lang === "ar" ? "rtl" : "ltr";
     document.body?.classList.toggle("is-rtl", lang === "ar");
@@ -242,7 +275,7 @@
     window.CineAuraLang?.load?.(lang);
     translateDom(document);
     wireSessionNav();
-    document.dispatchEvent(new CustomEvent("cineaura:prefs", { detail: { language: lang, theme: mode } }));
+    document.dispatchEvent(new CustomEvent("cineaura:prefs", { detail: { language: lang, theme: mode, style: st } }));
   }
 
   let accountLangApplied = false; // the member's saved language beats the IP-based one
@@ -252,7 +285,7 @@
     const revisionAtStart = prefsRevision;
     try {
       const res = await supabaseRequest(
-        `/rest/v1/profiles?member_id=eq.${restValue(s.member_id)}&select=language,theme`
+        `/rest/v1/profiles?member_id=eq.${restValue(s.member_id)}&select=language,theme,style`
       );
       // Don't let a delayed profile response undo a more recent selection made
       // on this page. Also guard against the account changing while it loads.
@@ -261,11 +294,17 @@
       if (!res.ok || !p) return;
       const language = LANGS.includes(p.language) ? p.language : null;
       const theme = p.theme === "day" || p.theme === "night" ? p.theme : null;
+      const style = STYLE_VALS.includes(p.style) ? p.style : null;
       // A language picked on this device wins; "en" is the default of a fresh profile,
       // so it is not treated as a choice and the browser language keeps applying.
       const manual = LANGS.includes(localStorage.getItem(LANG_KEY));
       const accountLang = language && !manual && language !== "en" ? language : null;
       if (theme) applyPrefs({ theme, persist: true });
+      if (style) {
+        const manualStyle = STYLE_VALS.includes(localStorage.getItem(STYLE_KEY));
+        if(!manualStyle || style==="default") applyPrefs({ style, persist: true });
+        else if(manualStyle && getStyle()==="default" && style!=="default") applyPrefs({ style, persist: true });
+      }
       if (accountLang) {
         accountLangApplied = true;
         applyPrefs({ language: accountLang, persist: false });
@@ -2650,6 +2689,11 @@
               <button type="button" role="radio" data-theme-pick="day" data-i18n="set.light">Light</button>
             </div>
           </div>
+          <div class="sset-row sset-themes">
+            <span class="sset-lbl" id="sset-style-lbl" data-i18n="set.style">Theme style</span>
+            <p class="sset-hint" data-i18n="set.styleHint">14 looks — Default glass plus your favourite apps and systems. Dark/Light shades each one.</p>
+            <div id="sset-themes-grid" class="sset-themes-grid" role="radiogroup" aria-labelledby="sset-style-lbl"></div>
+          </div>
           <div class="sset-row sset-adfree">
             <div class="sset-switch-line">
               <div class="sset-switch-text">
@@ -2712,6 +2756,50 @@
       }
     }
 
+    function renderStyleGrid(){
+      const grid = overlay.querySelector("#sset-themes-grid");
+      if(!grid) return;
+      const cur = getStyle();
+      // prefer helper from themes.js if loaded (keeps single source of truth)
+      if(window.CineauraTheme && typeof window.CineauraTheme.renderPicker === "function"){
+        window.CineauraTheme.renderPicker(grid, cur);
+        // also wire patchProfile on its cards
+        grid.querySelectorAll("[data-style-pick]").forEach(btn=>{
+          btn.addEventListener("click", ()=>{
+            const v = btn.getAttribute("data-style-pick");
+            applyPrefs({ style:v, persist:true });
+            patchProfile({ style:v });
+            // update aria
+            grid.querySelectorAll("[data-style-pick]").forEach(x=> x.setAttribute("aria-checked", String(x.getAttribute("data-style-pick")===v)));
+          });
+        });
+        return;
+      }
+      grid.innerHTML="";
+      STYLE_VALS.forEach(id=>{
+        const meta = STYLE_META[id] || { label:id, sub:"", icon:"•", bar:"#777", body:"#444" };
+        const btn=document.createElement("button");
+        btn.type="button";
+        btn.setAttribute("role","radio");
+        btn.setAttribute("data-style-pick", id);
+        btn.setAttribute("aria-checked", String(id===cur));
+        btn.className="sset-theme-card"+(id===cur?" active":"");
+        const isDarkIcon = ["#fff","#ffffff","#f0f2f5","#f3f3f3","#ececef","#fffbfe","#f2f2f7","#fafafa","#ffffff"].includes(meta.body.toLowerCase());
+        const fg = isDarkIcon ? "#222" : "#fff";
+        btn.innerHTML=`<div class="sset-theme-prev" style="background:${meta.body}"><div class="sset-theme-prev__bar" style="background:${meta.bar}"><span class="sset-theme-prev__dot" style="background:rgba(255,255,255,.95)"></span><span class="sset-theme-prev__dot" style="background:rgba(255,255,255,.75)"></span><span class="sset-theme-prev__dot" style="background:rgba(255,255,255,.55)"></span></div><div class="sset-theme-prev__body" style="color:${fg}">${meta.icon}</div></div><div class="sset-theme-name">${escapeHtml(meta.label)}</div><div class="sset-theme-sub">${escapeHtml(meta.sub)}</div>`;
+        btn.addEventListener("click", ()=>{
+          applyPrefs({ style:id, persist:true });
+          patchProfile({ style:id });
+          grid.querySelectorAll("[data-style-pick]").forEach(x=>{
+            const is=x.getAttribute("data-style-pick")===id;
+            x.classList.toggle("active", is);
+            x.setAttribute("aria-checked", String(is));
+          });
+        });
+        grid.appendChild(btn);
+      });
+    }
+
     function syncAll() {
       langSel.value = getLang();
       fillCountries();
@@ -2719,6 +2807,7 @@
       overlay.querySelectorAll("[data-theme-pick]").forEach((b) => {
         b.setAttribute("aria-checked", String(b.dataset.themePick === getTheme()));
       });
+      renderStyleGrid();
       translateDom(overlay);
       syncAdFree();
     }
@@ -4660,6 +4749,8 @@
     langText,
     getLang,
     getTheme,
+    getStyle,
+    getStyles,
     getLocale,
     applyPrefs,
     translateDom,

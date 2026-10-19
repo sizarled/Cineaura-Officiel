@@ -41,6 +41,21 @@
     }
     if (!localStorage.getItem("cineaura_theme")) localStorage.setItem("cineaura_theme", theme);
     html.dataset.theme = theme;
+    // Appearance themes (default glass + 13 platform/OS presets) — orthogonal to day/night
+    try{
+      const VALID_STYLE = ["default","facebook","youtube","instagram","netflix","prime","appletv","win7","win8","win10","win11","macos","android","ios"];
+      let style = localStorage.getItem("cineaura_style");
+      if(!VALID_STYLE.includes(style)) style = "default";
+      html.dataset.style = style;
+      // ensure css/themes.css present early (redundant with js/themes.js)
+      if(!document.querySelector('link[href="css/themes.css"]')){
+        const l=document.createElement("link"); l.rel="stylesheet"; l.href="css/themes.css"; document.head.appendChild(l);
+      }
+      // also ensure js/themes.js helper loaded (non-blocking)
+      if(!document.querySelector('script[src="js/themes.js"]')){
+        const s=document.createElement("script"); s.src="js/themes.js"; s.defer=true; document.head.appendChild(s);
+      }
+    }catch{}
     html.lang = lang;
     html.dir = lang === "ar" ? "rtl" : "ltr";
     // Load the language pack (lang/<language>.js) before the page scripts run.
