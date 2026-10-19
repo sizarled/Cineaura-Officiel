@@ -354,7 +354,10 @@
         if((watchRoot&&isSelectionInside(watchRoot))||(main&&isSelectionInside(main))) return;
       }
     }catch{}
+    // Scroll-lock: prevent jump-to-top during reorder (no animated bounce)
     const _sx=window.scrollX, _sy=window.scrollY;
+    const _ae=document.activeElement;
+    const _isSelectOpen=_ae && _ae.tagName==='SELECT';
     const page = detectPage();
     if(page==="home") applyHomeOrder(cfg.pages.home||PRESETS.default.home);
     if(page==="watch") applyWatchOrder(cfg.pages.watch||PRESETS.default.watch);
@@ -368,8 +371,15 @@
     }
     // Apply homepage pins (add extra rail)
     applyPins(cfg.pins||[]);
-    // Restore scroll — layout reorder must not jump to top
-    try{ if(Math.abs(window.scrollY-_sy)>2||Math.abs(window.scrollX-_sx)>2) requestAnimationFrame(()=> window.scrollTo(_sx,_sy)); }catch{}
+    // If DOM reorder caused a jump, restore silently without triggering menu-close scroll handlers
+    try{
+      if(!_isSelectOpen && (Math.abs(window.scrollY-_sy)>2||Math.abs(window.scrollX-_sx)>2)){
+        // Use instant restore and suppress the scroll event that would close native <select> / menus
+        window._lzScrollLock=true;
+        window.scrollTo({left:_sx, top:_sy, behavior:'instant'});
+        setTimeout(()=>{ window._lzScrollLock=false; }, 50);
+      }
+    }catch{}
     // Shortcuts: handled inside profile/dashboard render via event
     document.dispatchEvent(new CustomEvent("cineaura:layout-applied",{detail:{cfg,page}}));
   }
@@ -473,9 +483,10 @@
     // Also observe DOM ready for dashboard/profile which render async — but never during text selection or when user is typing
     const obs=new MutationObserver(()=>{
       try{
+        if(window._lzScrollLock) return;
         if(hasActiveSelection()) return;
         const ae=document.activeElement;
-        if(ae && (ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'||ae.isContentEditable)) return;
+        if(ae && (ae.tagName==='INPUT'||ae.tagName==='SELECT'||ae.tagName==='TEXTAREA'||ae.isContentEditable)) return;
       }catch{}
       // debounce apply
       clearTimeout(window._lzApplyTimer);

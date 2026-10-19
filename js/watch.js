@@ -2224,7 +2224,7 @@
           <h2>${t("watch.providers")}</h2>
           <p class="muted">${t("watch.noProviders")}</p>
         </div></div>`;
-      requestAnimationFrame(() => { window.scrollTo(_sx, _sy); if(_savedRange&&_savedSel) try{_savedSel.removeAllRanges();_savedSel.addRange(_savedRange);}catch{} });
+      requestAnimationFrame(() => { try{ window._lzScrollLock=true; window.scrollTo(_sx, _sy); }catch{} setTimeout(()=>window._lzScrollLock=false,50); if(_savedRange&&_savedSel) try{_savedSel.removeAllRanges();_savedSel.addRange(_savedRange);}catch{} });
       return;
     }
     const region = regions.includes(state.providerRegion) ? state.providerRegion : regions[0];
@@ -2239,7 +2239,7 @@
         state.providerQuality = "best_price";
         renderProviders();
         loadProviderOffers(state.providerRegion);
-        requestAnimationFrame(() => window.scrollTo(_x, _y));
+        requestAnimationFrame(() => { try{ window._lzScrollLock=true; window.scrollTo(_x, _y); }catch{} setTimeout(()=>window._lzScrollLock=false,50); });
       };
       // Prevent opening the select from bubbling to global handlers that scroll
       sel.onclick = (e) => e.stopPropagation();
@@ -2251,7 +2251,7 @@
         const _x = window.scrollX, _y = window.scrollY;
         state.providerQuality = tab.dataset.quality || "best_price";
         renderProviders();
-        requestAnimationFrame(() => window.scrollTo(_x, _y));
+        requestAnimationFrame(() => { try{ window._lzScrollLock=true; window.scrollTo(_x, _y); }catch{} setTimeout(()=>window._lzScrollLock=false,50); });
       };
     });
     // Prevent label wrapper from causing scroll propagation
@@ -2272,7 +2272,8 @@
     });
     // Final restore for direct calls (e.g. loadProviderOffers) — plus restore selection if we saved it
     requestAnimationFrame(() => {
-      window.scrollTo(_sx, _sy);
+      try{ window._lzScrollLock=true; window.scrollTo(_sx, _sy); setTimeout(()=>window._lzScrollLock=false,50); }catch{}
+
       if(_savedRange && _savedSel){
         try{ _savedSel.removeAllRanges(); _savedSel.addRange(_savedRange); }catch{}
       }
