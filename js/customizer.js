@@ -69,13 +69,23 @@
     document.body.appendChild(overlay);
     overlay.querySelectorAll(".lz-x, #lz-close").forEach(b=> b.addEventListener("click", close));
     overlay.addEventListener("mousedown", e=>{ if(e.target===overlay) close(); });
-    // page nav
+    // page nav — each row has list view + open page for live drag
     const nav=overlay.querySelector("#lz-pages");
     Object.keys(PAGE_DEFS).forEach(k=>{
+      const wrap=document.createElement("div"); wrap.style.display="grid"; wrap.style.gap="4px";
       const b=document.createElement("button");
       b.type="button"; b.dataset.page=k; b.textContent=PAGE_DEFS[k].label;
+      b.style.width="100%";
       b.addEventListener("click", ()=>{ activePage=k; render(); });
-      nav.appendChild(b);
+      const openBtn=document.createElement("button");
+      openBtn.type="button"; openBtn.textContent="↗ فتح الصفحة للتعديل المباشر";
+      openBtn.className="btn btn-sm btn-ghost"; openBtn.style.fontSize="11px"; openBtn.style.padding="4px 6px";
+      openBtn.addEventListener("click", ()=>{
+        if(window.CineAuraPageEditor) window.CineAuraPageEditor.openPage(k);
+        else { try{ localStorage.setItem("cineaura_edit_page",k);}catch{} location.href=(k==="home"?"index.html":k==="watch"?"watch.html":k==="content"?"content.html":k==="market"?"market.html":k==="dashboard"?"dashboard.html":"profile.html")+"?cine_edit="+encodeURIComponent(k); }
+      });
+      wrap.append(b, openBtn);
+      nav.appendChild(wrap);
     });
     overlay.querySelectorAll("[data-tab]").forEach(btn=>{
       btn.addEventListener("click",()=>{ activeTab=btn.dataset.tab; render(); });
@@ -108,8 +118,8 @@
 
   function render(){
     buildOverlay();
-    // active states
-    overlay.querySelectorAll("#lz-pages button").forEach(b=> b.classList.toggle("active", b.dataset.page===activePage));
+    // active states — only page buttons with dataset.page
+    overlay.querySelectorAll("#lz-pages button[data-page]").forEach(b=> b.classList.toggle("active", b.dataset.page===activePage));
     overlay.querySelectorAll("[data-tab]").forEach(b=> b.classList.toggle("active", b.dataset.tab===activeTab));
     const panels=overlay.querySelector("#lz-panels");
     panels.innerHTML="";
@@ -126,8 +136,15 @@
     const order=(cfg.pages&&cfg.pages[page])? cfg.pages[page].slice() : defIds.slice();
     // ensure all ids present (include any missing)
     defIds.forEach(id=>{ if(!order.includes(id)) order.push(id); });
+    const banner=document.createElement("div"); banner.className="lz-panel"; banner.style.borderColor="var(--cyan)"; banner.style.background="color-mix(in srgb, var(--cyan) 8%, var(--surface))";
+    banner.innerHTML=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span>📄</span><b>${PAGE_DEFS[page].label}</b><span class="lz-hint" style="flex:1">عند النقر على الصفحة تفتح ويمكنك سحب أقسامها مباشرة لإعادة الترتيب، أو إضافة اختصارات من الداشبورد/البروفايل/الماركت/الايبي تي في</span><button class="btn btn-sm btn-primary" type="button" id="lz-open-live">فتح الصفحة للتعديل المباشر ↗</button></div>`;
+    root.appendChild(banner);
+    banner.querySelector("#lz-open-live").onclick=()=>{
+      if(window.CineAuraPageEditor) window.CineAuraPageEditor.openPage(page);
+      else { try{ localStorage.setItem("cineaura_edit_page",page);}catch{} location.href=(page==="home"?"index.html":page==="watch"?"watch.html":page==="content"?"content.html":page==="market"?"market.html":page==="dashboard"?"dashboard.html":"profile.html")+"?cine_edit="+encodeURIComponent(page); }
+    };
     const panel=document.createElement("div"); panel.className="lz-panel";
-    panel.innerHTML=`<h4>ترتيب أقسام — ${PAGE_DEFS[page].label}</h4><p class="lz-hint">اسحب لإعادة الترتيب. فعّل/عطّل الأقسام. ينطبق على هذه الصفحة فقط.</p>`;
+    panel.innerHTML=`<h4>ترتيب أقسام — ${PAGE_DEFS[page].label}</h4><p class="lz-hint">اسحب هنا لإعادة الترتيب (معاينة سريعة) أو افتح الصفحة للسحب المباشر على نفس الصفحة مع لوحة اختصارات الداشبورد/البروفايل/الماركت/الايبي تي في.</p>`;
     const list=document.createElement("div"); list.className="lz-list"; list.id="lz-order-list";
     order.forEach(id=>{
       const row=document.createElement("div"); row.className="lz-item"; row.draggable=true; row.dataset.id=id;

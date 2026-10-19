@@ -65,6 +65,9 @@
       if(!document.querySelector('script[src="js/customizer.js"]')){
         const sc=document.createElement("script"); sc.src="js/customizer.js"; sc.defer=true; document.head.appendChild(sc);
       }
+      if(!document.querySelector('script[src="js/page-editor.js"]')){
+        const pe=document.createElement("script"); pe.src="js/page-editor.js"; pe.defer=true; document.head.appendChild(pe);
+      }
     }catch{}
     html.lang = lang;
     html.dir = lang === "ar" ? "rtl" : "ltr";
