@@ -489,6 +489,28 @@
           <button class="btn btn-sm btn-ghost" type="button" data-section="codes">${t("dash.ov.manage")}</button>
         </div>
         <div class="ov-codes" id="ov-codes"><p class="muted">${t("common.loading")}</p></div>
+      </section>
+
+      <section class="ov-block" aria-labelledby="ov-level-h">
+        <div class="ov-head">
+          <div>
+            <h2 id="ov-level-h">${t("dash.nav.level")}</h2>
+            <p class="muted">${t("level.lead")}</p>
+          </div>
+          <button class="btn btn-sm btn-ghost" type="button" data-section="level">${t("level.title")} →</button>
+        </div>
+        <div id="ov-level-embed"><p class="muted">${t("common.loading")}</p></div>
+      </section>
+
+      <section class="ov-block" id="ov-panel-block" aria-labelledby="ov-panel-h" ${state.panelVisible ? "" : "hidden"}>
+        <div class="ov-head">
+          <div>
+            <h2 id="ov-panel-h">${t("nav.panel")}</h2>
+            <p class="muted">${t("pa.ov.lead") || t("panel.ov.lead") || "Staff moderation, members and reports"}</p>
+          </div>
+          <a class="btn btn-sm btn-primary" href="./Panel.html">${t("nav.panel")} →</a>
+        </div>
+        <div class="ov-panel-body" id="ov-panel-body"><p class="muted">${t("pa.ov.lead") || "Manage members, reports, market and more"}</p><p style="margin-top:8px"><a class="btn btn-sm btn-ghost" href="./Panel.html">${t("common.open")} ${t("nav.panel")}</a></p></div>
       </section>`;
 
     const memberId = m.member_id;
@@ -522,6 +544,32 @@
       if (ovMsg) ovMsg.textContent = mp.level.next ? `${t("level.remaining",{n: Math.max(0, mp.level.next.at - mp.level.earned), next: mp.level.next.name})} · ${t("level.progressLabel",{pct, next: mp.level.next.name})}` : t("level.maxReached");
       ovLv.hidden = false;
     }
+    // Level + Panel embedded under Overview (requested: قسم المستوى والبانل تحت النظرة العامة)
+    const ovLevelEmbed = main.querySelector("#ov-level-embed");
+    if (ovLevelEmbed && mp?.level) {
+      const lv = mp.level;
+      const have = lv.earned;
+      const next = lv.next;
+      const toGo = next ? Math.max(0, next.at - have) : 0;
+      const pct = Math.round(lv.progress * 100);
+      const fmt = (n)=>{ try{ return Number(n).toLocaleString(C.getLocale()); } catch { return String(n); } };
+      const hero = next
+        ? `<div class="pt-level lv-hero" data-level="${lv.level}"><span class="pt-lv-badge"><bdi dir="ltr">${escapeHtml(lv.name)}</bdi></span><div class="pt-lv-main"><div class="pt-lv-top"><b>${escapeHtml(t("level.current"))}: ${escapeHtml(lv.name)} · ${escapeHtml(t("level.multiplier",{n: lv.multiplier}))}</b><span class="pt-lv-next">${escapeHtml(t("level.earned",{n: fmt(have)}))} · ${escapeHtml(t("level.remaining",{n: fmt(toGo), next: next.name}))}</span></div><div class="pt-lv-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></div></div></div>`
+        : `<div class="pt-level lv-hero" data-level="${lv.level}"><span class="pt-lv-badge"><bdi dir="ltr">${escapeHtml(lv.name)}</bdi></span><div class="pt-lv-main"><div class="pt-lv-top"><b>${escapeHtml(t("level.current"))}: ${escapeHtml(lv.name)} · ${escapeHtml(t("level.multiplier",{n: lv.multiplier}))}</b><span class="pt-lv-next">${escapeHtml(t("level.maxReached"))}</span></div><div class="pt-lv-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><span style="width:100%"></span></div></div></div>`;
+      const rows = C.POINT_LEVELS.slice(0,8).map((at,i)=>{
+        const isCur = i===lv.level;
+        const unlocked = lv.level>=i;
+        const permKey = C.LEVEL_PERMS[i]||"level.perm.max";
+        const perm = t(permKey);
+        const status = isCur ? `<span class="lv-badge is-cur">${escapeHtml(t("level.statusCurrent"))}</span>` : unlocked ? `<span class="lv-badge is-on">${escapeHtml(t("level.statusUnlocked"))}</span>` : `<span class="lv-badge is-off">${escapeHtml(t("level.statusLocked"))}</span>`;
+        return `<tr class="${isCur?"is-you":""}"><td><bdi dir="ltr">${escapeHtml(C.levelName(i))}</bdi></td><td><bdi dir="ltr">${fmt(at)}</bdi></td><td>${escapeHtml(perm)}</td><td>${status}</td></tr>`;
+      }).join("");
+      ovLevelEmbed.innerHTML = `${hero}<div class="glass lv-perms" style="margin-top:12px;padding:12px"><h3 style="margin:0 0 6px;font-size:15px">${escapeHtml(t("level.permissionsTitle"))}</h3><div style="overflow:auto"><table class="pt-table lv-table"><thead><tr><th>${escapeHtml(t("level.colLevel"))}</th><th>${escapeHtml(t("level.colPoints"))}</th><th>${escapeHtml(t("level.colUnlocks"))}</th><th>${escapeHtml(t("level.colStatus"))}</th></tr></thead><tbody>${rows}</tbody></table></div><p class="muted" style="margin:8px 0 0">${escapeHtml(t("level.hint"))}</p><p style="margin:8px 0 0"><a class="btn btn-sm btn-ghost" href="#level" data-section="level">${escapeHtml(t("level.title"))} →</a></p></div>`;
+    } else if (ovLevelEmbed && !mp?.level) {
+      ovLevelEmbed.innerHTML = `<p class="muted">${escapeHtml(t("points.loadFail"))}</p>`;
+    }
+    const ovPanelBlock = main.querySelector("#ov-panel-block");
+    if (ovPanelBlock) ovPanelBlock.hidden = !state.panelVisible;
     if (mp) {
       main.querySelector("#ov-points-box").innerHTML = C.pointsHtml(mp);
       main.querySelector("#ov-points-more").hidden = false;
@@ -3468,12 +3516,20 @@
     if (!force && Date.now() - menuCheckAt < 10000) return;
     menuCheckAt = Date.now();
     const visible = await computePanelVisible().catch(() => state.panelVisible);
-    if (visible === state.panelVisible) return;
+    if (visible === state.panelVisible) {
+      // still sync overview panel block visibility if overview is open
+      const ovPanelSync = document.querySelector("#ov-panel-block");
+      if (ovPanelSync) ovPanelSync.hidden = !visible;
+      return;
+    }
     state.panelVisible = visible;
     const nav = $("#dash-root .side-nav");
-    if (!nav) return;
-    nav.querySelector("[data-panel-link]")?.remove();
-    if (visible) nav.insertAdjacentHTML("beforeend", `<a href="./Panel.html" data-panel-link>${C.navIcon("panel")}<span>${t("nav.panel")}</span></a>`);
+    if (nav) {
+      nav.querySelector("[data-panel-link]")?.remove();
+      if (visible) nav.insertAdjacentHTML("beforeend", `<a href="./Panel.html" data-panel-link>${C.navIcon("panel")}<span>${t("nav.panel")}</span></a>`);
+    }
+    const ovPanel = document.querySelector("#ov-panel-block");
+    if (ovPanel) ovPanel.hidden = !visible;
   }
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") refreshMenus();
