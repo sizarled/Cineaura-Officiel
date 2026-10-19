@@ -41,7 +41,7 @@
     if(p.includes("profile")) return "profile";
     return "home";
   }
-  function isEditMode(){ const q=getQueryEdit(); if(q) return q; try{ const v=localStorage.getItem(EDIT_KEY); if(v) return v; }catch{} return null; }
+  function isEditMode(){ const q=getQueryEdit(); if(q) return q; return null; }
 
   let activePage=null, historyStack=[];
   function enableEdit(pageKey){
@@ -72,7 +72,9 @@
       .ce-btn.primary{ background:#01b4e4; color:#032541; border-color:#01b4e4; font-weight:700; }
       .ce-btn:hover{ filter:brightness(1.06); }
       body.ce-padded{ padding-top:64px; }
-      .ce-item{ position:relative; border-radius:14px; outline:2px dashed transparent; outline-offset:2px; transition:outline .16s, box-shadow .16s, transform .12s; }
+      .ce-item{ position:relative; border-radius:14px; outline:2px dashed transparent; outline-offset:2px; transition:outline .16s, box-shadow .16s, transform .12s; user-select:text; -webkit-user-select:text; }
+      .ce-item *{ user-select:text; -webkit-user-select:text; }
+      .ce-item .ce-handle, .ce-item .ce-controls, .ce-item .ce-ctl{ user-select:none; -webkit-user-select:none; }
       .ce-item:hover{ outline-color:rgba(1,180,228,.45); box-shadow:0 8px 24px rgba(0,0,0,.12); }
       .ce-item.ce-dragging{ opacity:.42; outline-color:#01b4e4; transform:rotate(1deg) scale(.98); }
       .ce-item.ce-over{ outline-color:#01b4e4; outline-style:dashed; background:color-mix(in srgb, #01b4e4 6%, transparent); }
@@ -237,10 +239,13 @@
     if(el.dataset.cePrepared) return;
     el.dataset.cePrepared="1";
     el.classList.add("ce-item");
-    el.draggable=true;
+    // Keep the section itself non-draggable so text selection works;
+    // only the handle initiates drag.
+    el.draggable=false;
     const name=el.id || el.getAttribute("data-ce-name") || el.className.split(" ")[0] || "قسم";
     // handle
     let h=document.createElement("div"); h.className="ce-handle";
+    h.draggable=true;
     h.innerHTML=`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h8M8 12h8M8 18h8"/></svg> <span>${name}</span>`;
     el.prepend(h);
     // controls
@@ -269,8 +274,8 @@
       prepareItem(clone, pageKey);
       pulse(clone);
     };
-    el.addEventListener("dragstart", onDragStart);
-    el.addEventListener("dragend", onDragEnd);
+    h.addEventListener("dragstart", onDragStart);
+    h.addEventListener("dragend", onDragEnd);
     el.addEventListener("dragover", onDragOver);
     el.addEventListener("drop", onDrop);
     el.addEventListener("dragenter", e=> e.preventDefault());
@@ -281,8 +286,20 @@
     if(btn) btn.innerHTML= hidden ? "👁" : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
   }
 
-  function onDragStart(e){ const item=e.currentTarget; e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain","MOVE:"+ (item.id||"")); item.classList.add("ce-dragging"); window._ceDragSrc=item; }
-  function onDragEnd(e){ e.currentTarget.classList.remove("ce-dragging"); document.querySelectorAll(".ce-over").forEach(el=> el.classList.remove("ce-over")); window._ceDragSrc=null; snapshot(); }
+  function onDragStart(e){
+    // Don't start dragging while user is selecting text
+    try { if (window.getSelection && window.getSelection().toString().trim()) { e.preventDefault(); return; } } catch{}
+    const handle=e.currentTarget;
+    const item=handle.closest(".ce-item") || handle.parentElement;
+    if(!item) return;
+    e.dataTransfer.effectAllowed="move"; e.dataTransfer.setData("text/plain","MOVE:"+ (item.id||"")); item.classList.add("ce-dragging"); window._ceDragSrc=item;
+  }
+  function onDragEnd(e){
+    const handle=e.currentTarget;
+    const item=handle.closest(".ce-item") || handle.parentElement;
+    if(item) item.classList.remove("ce-dragging");
+    document.querySelectorAll(".ce-over").forEach(el=> el.classList.remove("ce-over")); window._ceDragSrc=null; snapshot();
+  }
   function onDragOver(e){ e.preventDefault(); const over=e.currentTarget; if(window._ceDragSrc && over!==window._ceDragSrc) over.classList.add("ce-over"); }
   function onDrop(e){
     e.preventDefault(); e.stopPropagation();
@@ -433,6 +450,8 @@
   }
 
   function init(){
+    // Cleanup stale localStorage that kept edit mode sticky after previous session
+    try { if (!getQueryEdit() && localStorage.getItem(EDIT_KEY)) localStorage.removeItem(EDIT_KEY); } catch{}
     const edit=isEditMode();
     if(edit){
       const tryEnable=()=>{

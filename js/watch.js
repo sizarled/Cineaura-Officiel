@@ -2198,6 +2198,16 @@
   function renderProviders() {
     const el = $("#watch-providers");
     if (!el) return;
+    // Don't destroy active text selection — user may be copying a provider name
+    try {
+      const sel = window.getSelection && window.getSelection();
+      if (sel && sel.toString().trim()) {
+        const anchor = sel.anchorNode && sel.anchorNode.parentElement;
+        if (anchor && el.contains(anchor)) return;
+        const focus = sel.focusNode && sel.focusNode.parentElement;
+        if (focus && el.contains(focus)) return;
+      }
+    } catch {}
     // Preserve scroll position — changing Region/quality re-renders this panel and previously jumped to top
     const _sx = window.scrollX, _sy = window.scrollY;
     el.hidden = false;
