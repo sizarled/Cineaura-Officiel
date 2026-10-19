@@ -354,11 +354,40 @@
     }
   }
 
+  // The country is never typed or picked: it comes from the visitor's IP address when the
+  // account is created, and it cannot be changed afterwards (sql/country_lock.sql).
+  function englishCountry(cc) {
+    if (cc === "PS") return "Palestine";
+    try {
+      const n = new Intl.DisplayNames(["en"], { type: "region" }).of(cc);
+      return n && n !== cc ? n : "";
+    } catch {
+      return "";
+    }
+  }
+
+  async function setupCountry() {
+    const input = $("#country");
+    const hint = $("#country-hint");
+    const btn = $("#submit-btn");
+    input.value = "";
+    input.placeholder = t("reg.countryDetecting");
+    btn.disabled = true;
+    const cc = await window.CineAura.detectGeo(true).catch(() => "");
+    const name = cc ? englishCountry(cc) : "";
+    if (!name) {
+      hint.textContent = t("reg.countryFail");
+      input.placeholder = "";
+      return;
+    }
+    input.value = name;
+    hint.textContent = t("reg.countryAuto");
+    btn.disabled = false;
+  }
+
   function init() {
     setupChrome();
-    const select = $("#country");
-    select.innerHTML = `<option value="" disabled selected>Select country</option>` +
-      COUNTRIES.map((c) => `<option value="${c}">${c}</option>`).join("");
+    setupCountry();
 
     const birth = document.querySelector('input[name="birth_date"]');
     const max = new Date();

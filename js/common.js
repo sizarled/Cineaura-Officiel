@@ -11,8 +11,8 @@
   const LANGS = window.CineAuraLangs || ["en", "ar", "fr", "de", "es", "nl", "it"];
   const TMDB_LANG = { en: "en-US", ar: "ar-SA", fr: "fr-FR", de: "de-DE", es: "es-ES", nl: "nl-NL", it: "it-IT" };
   const LOCALE = { en: "en-US", ar: "ar", fr: "fr-FR", de: "de-DE", es: "es-ES", nl: "nl-NL", it: "it-IT" };
-  const SUPABASE_URL = "https://mxdsgnlmfpaekgmswjou.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_FZmzR3yk_CR5j9jH191AVQ_NQivMZ-Q";
+  const SUPABASE_URL = "https://samazxadqggoeilaqfdp.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_UZ74c-sHOywW9lOfErwXuA_GtMtvYYY";
 
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -698,11 +698,11 @@
   }
 
   // ---------- Profile picture: an uploaded photo or an image link ----------
-  // Uploads go to Supabase Storage, bucket IPTV, folder Avatar, named after the
+  // Uploads go to Supabase Storage, bucket source, folder Avatar, named after the
   // member id (Avatar/ID123.jpg) and sent with x-upsert: a new photo replaces the
   // old one under the same name. sql/avatar_storage.sql holds the Storage policies
   // that let the public key write exactly that file and nothing else.
-  const AVATAR_BUCKET = "IPTV";
+  const AVATAR_BUCKET = "source";
   const AVATAR_FOLDER = "Avatar";
   const AVATAR_PX = 512; // the stored photo is a square of at most 512 x 512
   const AVATAR_MAX_BYTES = 10 * 1024 * 1024; // the file picked, before it is made smaller
@@ -928,11 +928,11 @@
   // it, what it shows may not exist yet (a new prize, a new product), so a picked picture waits
   // in the field (made smaller, as a JPEG) and goes up only once the page has saved and knows
   // the id: uploadPictures() names it after that id — <id>.jpg, and when there are several
-  // pictures <id>-1.jpg, <id>-2.jpg … — in the folder of the bucket IPTV the page gives
+  // pictures <id>-1.jpg, <id>-2.jpg … — in the folder of the bucket source the page gives
   // (Prizes/Previews, Prizes/Grpoups, Market/Product, Market/Logo, Market/Cover). Storage takes
   // the files only with an upload ticket the server writes for those exact names
   // (sql/image_uploads.sql), and x-upsert replaces an older picture of the same name.
-  const PICTURE_BUCKET = "IPTV";
+  const PICTURE_BUCKET = "source";
   const PICTURE_MAX_BYTES = 15 * 1024 * 1024; // the file picked, before it is made smaller
   const PICTURE_ERRORS = {
     type: "pic.errType",
@@ -1694,8 +1694,8 @@
      replaced with the username and password of a premium IPTV account: typed on
      the page, or found with a watch code (sql/iptv_premium.sql). */
   const IPTV_LISTS = {
-    free: { key: "free", name: "IPTV-Free", url: "https://mxdsgnlmfpaekgmswjou.supabase.co/storage/v1/object/public/IPTV/IPTV-Free.m3u" },
-    premium: { key: "premium", name: "IPTV-Premium", url: "https://mxdsgnlmfpaekgmswjou.supabase.co/storage/v1/object/public/IPTV/IPTV-Premuim.m3u" },
+    free: { key: "free", name: "IPTV-Free", url: "https://samazxadqggoeilaqfdp.supabase.co/storage/v1/object/public/IPTV/IPTV-Free.m3u" },
+    premium: { key: "premium", name: "IPTV-Premium", url: "https://samazxadqggoeilaqfdp.supabase.co/storage/v1/object/public/IPTV/IPTV-Premuim.m3u" },
   };
 
   const SLOT_USER = /^username$/i;

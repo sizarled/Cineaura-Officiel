@@ -2362,7 +2362,7 @@
     const totalMinutes = Number(state.profile?.private_minutes || 0) + Number(state.profile?.public_minutes || 0);
     const active = normalizeAccountStatus(state.member.status) === "active";
     const now = Date.now();
-    const country = String(state.profile?.country || state.member.country || "").trim().toLowerCase();
+    const country = String(state.member.country || state.profile?.country || "").trim().toLowerCase();
     const username = String(state.member.username || "").trim().toLowerCase();
     const memberKey = String(memberId || "").trim().toLowerCase();
     const ageYears = (iso) => {
@@ -3174,7 +3174,7 @@
           <textarea id="s-bio" placeholder="${t("common.bio")}">${escapeHtml(p.bio||"")}</textarea>
           <div class="form-row">
             <input id="s-region" value="${escapeHtml(p.region||"")}" placeholder="${t("common.region")}" />
-            <input id="s-country" value="${escapeHtml(p.country||m.country||"")}" placeholder="${t("common.country")}" />
+            <input id="s-country" value="${escapeHtml(m.country||p.country||"")}" placeholder="${t("common.country")}" readonly disabled title="${escapeHtml(t("set.countryLocked"))}" />
           </div>
           ${addressBoxHtml()}
         </div>
@@ -3256,7 +3256,6 @@
         theme: $("#s-theme").value,
         language: $("#s-lang").value,
         region: $("#s-region").value.trim(),
-        country: $("#s-country").value.trim(),
       };
       const profileSave = writeProfileSettings(body);
       const mem = { full_name: $("#s-name").value.trim(), email: $("#s-email").value.trim().toLowerCase() };

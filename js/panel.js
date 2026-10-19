@@ -2416,6 +2416,7 @@
           return toast(t("panel.saved"));
         }
         if (!missing) {
+          console.warn("[CineAura] panel_settings_save failed:", res?.status, raw, "- run sql/panel_settings_fix.sql in the Supabase SQL editor");
           if (/staff_forbidden/.test(raw)) return toast(t("panel.settingsSuper"));
           if (/staff_auth/.test(raw)) return toast(t("pza.errAuth"));
           return toast(t("panel.settingsFail"));
