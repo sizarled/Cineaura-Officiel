@@ -4231,4 +4231,7 @@
  "Highest multiplier · all permissions kept": "أعلى مضاعف · جميع الصلاحيات محفوظة",
  "Points needed": "النقاط المطلوبة",
  "New at this level": "الجديد في هذا المستوى",
+ "Each level unlocks new abilities — from publishing to market and auctions. Progress is cumulative: every level keeps all previous permissions.": "كل مستوى يفتح قدرات جديدة — من النشر إلى السوق والمزادات. التقدم تراكمي: كل مستوى يحتفظ بكل صلاحيات المستويات السابقة.",
+ "See what each level unlocks →": "اعرف ما يفتحه كل مستوى ←",
+ "LV0 watch · LV1 create & publish · LV2 challenge · LV3 lottery/prize · LV4 market buy · LV5 sell · LV6 auction buy · LV7 sell": "LV0 مشاهدة · LV1 إنشاء ونشر · LV2 تحديات · LV3 سحب/جوائز · LV4 شراء في السوق · LV5 بيع · LV6 شراء مزاد · LV7 بيع مزاد",
 };

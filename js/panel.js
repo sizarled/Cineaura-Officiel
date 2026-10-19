@@ -438,10 +438,21 @@
     const rows = state.members.filter((m) => ACC_TABS[tab](m) && (!q || `${m.username} ${m.full_name} ${m.member_id} ${m.email}`.toLowerCase().includes(q)));
     const count = (k) => state.members.filter(ACC_TABS[k]).length;
     const tabs = [["all", "panel.tab.all"], ["active", "panel.tab.active"], ["inactive", "panel.tab.inactive"], ["full", "panel.tab.full"], ["partial", "panel.tab.partial"]];
+    // Level gates reference for staff (LV0-LV7 cumulative, POINT_LEVELS thresholds)
+    const C = window.CineAura;
+    const lvRef = (() => {
+      if (!C?.POINT_LEVELS || !C.LEVEL_PERMS) return "";
+      const rows = C.POINT_LEVELS.slice(0,8).map((at,i)=>{
+        const perm = C.LEVEL_PERMS[i] ? t(C.LEVEL_PERMS[i]) : "";
+        return `<tr><td><bdi dir="ltr">${escapeHtml(C.levelName(i))}</bdi></td><td><bdi dir="ltr">${escapeHtml(C.compactPoints(at))}+</bdi></td><td>${escapeHtml(perm)}</td><td><bdi dir="ltr">×${C.levelMultiplier(i)}</bdi></td></tr>`;
+      }).join("");
+      return `<section class="glass pa-lv-ref" style="margin:14px 0;padding:14px;overflow:auto"><h3 style="margin:0 0 6px">${escapeHtml(t("level.permissionsTitle"))}</h3><p class="muted" style="margin:0 0 8px">${escapeHtml(t("level.permissionsSub"))}</p><div style="overflow:auto"><table class="pt-table" style="width:100%;min-width:520px"><thead><tr><th>${escapeHtml(t("level.colLevel"))}</th><th>${escapeHtml(t("level.colPoints"))}</th><th>${escapeHtml(t("level.colUnlocks"))}</th><th>${escapeHtml(t("level.colStatus"))} / ×</th></tr></thead><tbody>${rows}</tbody></table></div><p class="muted" style="margin:8px 0 0">${escapeHtml(t("level.hint"))}</p><p class="muted" style="margin:4px 0 0;font-size:11.5px">${escapeHtml(t("hh.pts.levelGateNote"))} — <a href="./dashboard.html#level" target="_blank" rel="noopener">${escapeHtml(t("hh.pts.levelLink"))}</a></p></section>`;
+    })();
     main.innerHTML = `
       <p class="eyebrow">${t("panel.nav.accounts")}</p>
       <h1>${t("panel.accountsTitle")}</h1>
       <p class="muted">${t("panel.accountsLead")}</p>
+      ${lvRef}
       <div class="tabs follow-tabs" role="tablist">
         ${tabs.map(([k, label]) => `<button type="button" role="tab" class="follow-tab${tab === k ? " active" : ""}" data-atab="${k}">${t(label)}<span class="follow-count">${count(k)}</span></button>`).join("")}
       </div>

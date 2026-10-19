@@ -457,6 +457,7 @@
         <div class="ov-head">
           <h2 id="ov-points-h">${t("points.title")}</h2>
           <div class="ov-head-btns">
+            <button class="btn btn-sm btn-ghost" type="button" data-section="level">${C.navIcon("level")}<span>${t("dash.nav.level")}</span></button>
             <button class="btn btn-sm btn-primary" type="button" data-section="points">${t("points.earnBtn")}</button>
             <button class="btn btn-sm btn-ghost" type="button" data-section="prizes">${t("dash.ov.toPrizes")}</button>
           </div>
@@ -466,6 +467,11 @@
           <div class="stat"><b data-pt="earned">…</b><span>${t("points.earned")}</span></div>
           <div class="stat"><b data-pt="spent">…</b><span>${t("points.spent")}</span></div>
           <div class="stat ov-level" data-pt-level hidden><b><bdi dir="ltr" data-pt="level"></bdi></b><span data-pt="mult"></span></div>
+        </div>
+        <div id="ov-level-detail" hidden>
+          <div class="pt-lv-bar ov-lv-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="ov-lv-bar"><span id="ov-lv-fill" style="width:0%"></span></div>
+          <p class="muted" id="ov-lv-msg" style="margin:6px 0 0;font-size:12.5px"></p>
+          <p style="margin:8px 0 0"><a class="btn btn-sm btn-ghost" href="#level" data-section="level">${t("level.title")} →</a></p>
         </div>
         <p class="muted" id="ov-points-msg">${t("points.loading")}</p>
         <details class="ov-more" id="ov-points-more" hidden>
@@ -504,6 +510,17 @@
       lvStat.querySelector('[data-pt="level"]').textContent = mp.level.name;
       lvStat.querySelector('[data-pt="mult"]').textContent = t("points.levelMult", { n: mp.level.multiplier });
       lvStat.hidden = false;
+    }
+    const ovLv = main.querySelector("#ov-level-detail");
+    const ovFill = main.querySelector("#ov-lv-fill");
+    const ovBar = main.querySelector("#ov-lv-bar");
+    const ovMsg = main.querySelector("#ov-lv-msg");
+    if (ovLv && mp?.level) {
+      const pct = Math.round((mp.level.progress || 0) * 100);
+      if (ovFill) ovFill.style.width = pct + "%";
+      if (ovBar) ovBar.setAttribute("aria-valuenow", String(pct));
+      if (ovMsg) ovMsg.textContent = mp.level.next ? `${t("level.remaining",{n: Math.max(0, mp.level.next.at - mp.level.earned), next: mp.level.next.name})} · ${t("level.progressLabel",{pct, next: mp.level.next.name})}` : t("level.maxReached");
+      ovLv.hidden = false;
     }
     if (mp) {
       main.querySelector("#ov-points-box").innerHTML = C.pointsHtml(mp);
