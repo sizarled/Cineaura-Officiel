@@ -753,7 +753,7 @@
       return;
     }
     if (state.gated) {
-      $("#code-input")?.focus();
+      $("#code-input")?.focus({ preventScroll: true });
       toast(t("watch.enterFirst"));
       return;
     }
@@ -775,6 +775,18 @@
     else playEmbed();
   }
 
+  // Only scroll when the target is off-screen — avoids the "jump to top" on every click
+  function maybeScrollTo(el, opts = { behavior: "smooth", block: "nearest" }) {
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const vh = window.innerHeight || document.documentElement.clientHeight;
+    const fullyVisible = r.top >= 0 && r.bottom <= vh;
+    const partlyVisible = r.top < vh && r.bottom > 0;
+    // If at least partly visible, don't force a scroll — the user is already there
+    if (fullyVisible || partlyVisible) return;
+    el.scrollIntoView(opts);
+  }
+
   /* Choosing a watch link stops what plays and brings the play button back, with
      the runtime under it: nothing loads and no minute counts before the press on
      play. The link that is already playing goes on. */
@@ -782,7 +794,7 @@
     const current = state.playingLink;
     const playing = Boolean(current) && !state.gated && $("#player")?.classList.contains("is-playing");
     if (playing && (current === row || (current.isMain && row.isMain))) {
-      $("#player")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      maybeScrollTo($("#player"), { behavior: "smooth", block: "nearest" });
       return;
     }
     state.playLink = row;
@@ -791,7 +803,7 @@
     state.playingLink = null;
     showIdle();
     setIdleArt();
-    $("#player")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    maybeScrollTo($("#player"), { behavior: "smooth", block: "nearest" });
   }
 
   function linkHost(url) {
@@ -2702,7 +2714,7 @@
     markActiveCard(row);
     renderLinkDetail(row);
     if (!row.isMain && linkKindOf(row) === "download") {
-      $("#link-detail")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      maybeScrollTo($("#link-detail"), { behavior: "smooth", block: "nearest" });
       return;
     }
     armLink(row);
@@ -2892,21 +2904,24 @@
         </section>`
         ).join("")}
       </div>`;
-    $("#add-link-btn").onclick = openAddLinkModal;
+    $("#add-link-btn").onclick = (e) => { e.preventDefault?.(); openAddLinkModal(); };
     el.onclick = (e) => {
       const report = e.target.closest("[data-report]");
       if (report) {
+        e.preventDefault?.();
         const row = state.linkOrder[Number(report.dataset.report)];
         if (row) openReportModal(row);
         return;
       }
       const scroll = e.target.closest("[data-rail-scroll]");
       if (scroll) {
+        e.preventDefault?.();
         scrollRail(scroll);
         return;
       }
       const open = e.target.closest("[data-open]");
       if (!open) return;
+      e.preventDefault?.();
       const row = state.linkOrder[Number(open.dataset.open)];
       if (row) selectLink(row);
     };
@@ -2919,6 +2934,7 @@
         const sel = state.selectedLink;
         if (!sel) return;
         if (e.target.closest("[data-report-sel]")) {
+          e.preventDefault?.();
           openReportModal(sel);
           return;
         }
@@ -3148,7 +3164,7 @@
 
   async function onPlay() {
     if (state.gated) {
-      $("#code-input").focus();
+      $("#code-input")?.focus({ preventScroll: true });
       return;
     }
     if (ageLocked()) {
@@ -3514,6 +3530,23 @@
     $("#episode-select").addEventListener("change", (e) => {
       loadSeason(state.season, Number(e.target.value));
     });
+    // Fix: any button press should NOT jump to top — prevent hash “#” links and form submits from scrolling
+    document.addEventListener("click", (e) => {
+      const a = e.target.closest('a[href="#"], a[href=""], a[href="javascript:void(0)"], a[href="javascript:;"]');
+      if (a) e.preventDefault();
+      // Same-page hash links like ./#search from watch.html would scroll watch page to top (no target) — let them navigate to index instead
+      const hashLink = e.target.closest('a[href^="./#"]');
+      if (hashLink && location.pathname.toLowerCase().includes("watch")) {
+        e.preventDefault();
+        const hash = hashLink.getAttribute("href").replace(/^\.\//, "");
+        location.href = "./index.html" + hash.slice(1);
+      }
+    }, true);
+    document.addEventListener("submit", (e) => {
+      // The watch page has no forms; any stray submit would reload and scroll to top
+      if (e.target.closest("#watch-root, #player, #player-gate")) e.preventDefault();
+    }, true);
+
     // Site Settings (or the first IP lookup) may change the region.
     document.addEventListener("cineaura:geo", () => {
       state.providerRegion = pickProviderRegion(currentCountry());
