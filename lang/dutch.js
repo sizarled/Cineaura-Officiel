@@ -4163,4 +4163,9 @@
  "Wrong password. Try again.": "Onjuist wachtwoord. Probeer opnieuw.",
  "Your join request was sent.": "Je verzoek om lid te worden is verstuurd.",
  "Sign in to ask to join.": "Log in om lid te worden aan te vragen.",
+,
+ "All updates": "Alle updates",
+ "All updates in one place — Market, videos, IPTV, movies and offers.": "Alle updates op één plek — winkel, video's, IPTV, films en aanbiedingen.",
+ "Loading updates…": "Updates laden…",
+ "LIVE": "LIVE"
 };

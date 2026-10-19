@@ -510,6 +510,7 @@
       startHero(heroItems);
       fillMarquee($("#movies-track"), (movies.results || []).slice(0, 20), "movie");
       fillMarquee($("#series-track"), (shows.results || []).slice(0, 20), "tv");
+      try{ const trending=[...(movies.results||[]).slice(0,8).map(m=>({...m,media_type:'movie'})),...(shows.results||[]).slice(0,8).map(s=>({...s,media_type:'tv'}))]; window.__cineauraTrending=trending; window.__cineauraPushTrending?.(trending); window.dispatchEvent(new CustomEvent('tmdb:trending',{detail:trending})); }catch{}
     } catch (error) {
       console.error(error);
       toast((window.CineAura?.t && window.CineAura.t("home.tmdb.fail")) || "Could not load TMDB titles. Please refresh.");

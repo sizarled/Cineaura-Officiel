@@ -4173,4 +4173,9 @@
  "Wrong password. Try again.": "Wrong password. Try again.",
  "Your join request was sent.": "Your join request was sent.",
  "Sign in to ask to join.": "Sign in to ask to join.",
+,
+ "All updates": "All updates",
+ "All updates in one place — Market, videos, IPTV, movies and offers.": "All updates in one place — Market, videos, IPTV, movies and offers.",
+ "Loading updates…": "Loading updates…",
+ "LIVE": "LIVE"
 };

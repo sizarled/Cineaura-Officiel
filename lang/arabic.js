@@ -4205,4 +4205,9 @@
  "Wrong password. Try again.": "كلمة السر خاطئة. حاول مجدداً.",
  "Your join request was sent.": "تم إرسال طلب الانضمام.",
  "Sign in to ask to join.": "سجّل الدخول لطلب الانضمام.",
+,
+ "All updates": "جميع التحديثات",
+ "All updates in one place — Market, videos, IPTV, movies and offers.": "جميع التحديثات في مكان واحد — المتجر، الفيديو، IPTV، الأفلام والعروض.",
+ "Loading updates…": "جاري تحميل التحديثات…",
+ "LIVE": "مباشر"
 };

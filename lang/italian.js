@@ -4165,4 +4165,9 @@
  "Wrong password. Try again.": "Password errata. Riprova.",
  "Your join request was sent.": "La tua richiesta di unirti è stata inviata.",
  "Sign in to ask to join.": "Accedi per chiedere di unirti.",
+,
+ "All updates": "Tutti gli aggiornamenti",
+ "All updates in one place — Market, videos, IPTV, movies and offers.": "Tutti gli aggiornamenti in un unico posto — negozio, video, IPTV, film e offerte.",
+ "Loading updates…": "Caricamento aggiornamenti…",
+ "LIVE": "LIVE"
 };

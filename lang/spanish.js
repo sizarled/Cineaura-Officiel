@@ -4167,4 +4167,9 @@
  "Wrong password. Try again.": "Contraseña incorrecta. Inténtalo de nuevo.",
  "Your join request was sent.": "Tu solicitud para unirte fue enviada.",
  "Sign in to ask to join.": "Inicia sesión para solicitar unirte.",
+,
+ "All updates": "Todas las actualizaciones",
+ "All updates in one place — Market, videos, IPTV, movies and offers.": "Todas las novedades en un solo lugar — tienda, vídeos, IPTV, películas y ofertas.",
+ "Loading updates…": "Cargando actualizaciones…",
+ "LIVE": "EN VIVO"
 };

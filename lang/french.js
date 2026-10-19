@@ -4162,4 +4162,9 @@
  "Wrong password. Try again.": "Mot de passe incorrect. Réessayez.",
  "Your join request was sent.": "Votre demande pour rejoindre a été envoyée.",
  "Sign in to ask to join.": "Connectez-vous pour demander à rejoindre.",
+,
+ "All updates": "Toutes les mises à jour",
+ "All updates in one place — Market, videos, IPTV, movies and offers.": "Toutes les nouveautés en un seul endroit — boutique, vidéos, IPTV, films et offres.",
+ "Loading updates…": "Chargement des mises à jour…",
+ "LIVE": "EN DIRECT"
 };

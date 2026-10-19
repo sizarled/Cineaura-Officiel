@@ -4164,4 +4164,9 @@
  "Wrong password. Try again.": "Falsches Passwort. Versuche es erneut.",
  "Your join request was sent.": "Deine Beitrittsanfrage wurde gesendet.",
  "Sign in to ask to join.": "Melde dich an, um einen Beitritt anzufragen.",
+,
+ "All updates": "Alle Updates",
+ "All updates in one place — Market, videos, IPTV, movies and offers.": "Alle Updates an einem Ort — Markt, Videos, IPTV, Filme und Angebote.",
+ "Loading updates…": "Updates werden geladen…",
+ "LIVE": "LIVE"
 };
