@@ -122,7 +122,8 @@
             </label>
             <label>
               <span data-i18n="reg.country">Country</span>
-              <select name="country" id="country" required></select>
+              <input type="text" name="country" id="country" readonly required autocomplete="off" />
+              <small class="muted" id="country-hint"></small>
             </label>
             <fieldset class="auth-full gender-field">
               <legend data-i18n="reg.gender">Gender</legend>
