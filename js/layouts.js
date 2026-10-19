@@ -66,9 +66,34 @@
   function resetToDefault(){ return resetToPreset("default"); }
 
   // Apply ordering to DOM
+  function ensureShortcutElements(container, order){
+    order.forEach(id=>{
+      if(!id || !id.startsWith("shortcut-")) return;
+      if(document.getElementById(id)) return;
+      // parse shortcut-source-sid
+      const parts=id.split("-");
+      // shortcut-dashboard-overview-xyz -> source=parts[1], sid=parts[2]
+      const source=parts[1]||"dashboard", sid=parts[2]||"shortcut";
+      const sec=document.createElement("section");
+      sec.id=id;
+      sec.className="section";
+      sec.innerHTML=`
+        <div class="container">
+          <div class="section-head">
+            <div><div class="kicker"><span class="kicker-num">↗</span><span class="eyebrow">${source}</span></div><h2>اختصار ${sid}</h2></div>
+          </div>
+          <div class="glass" style="padding:16px">
+            <p>اختصار من <b>${source}</b> • <b>${sid}</b></p>
+            <a class="btn btn-sm btn-primary" href="./${source==="dashboard"?"dashboard.html": source==="profile"?"profile.html": source==="market"?"market.html": source==="iptv"?"index.html#iptv": source+".html"}#${sid}">فتح</a>
+          </div>
+        </div>`;
+      container.appendChild(sec);
+    });
+  }
   function applyHomeOrder(order){
     const main=document.querySelector("main.page-main");
     if(!main) return;
+    ensureShortcutElements(main, order);
     // Collect direct section/div children that contain known IDs
     const byId={};
     const others=[];
@@ -98,12 +123,14 @@
   function applyWatchOrder(order){
     const root=document.getElementById("watch-root");
     if(!root) return;
+    ensureShortcutElements(root, order);
     const map={};
     [...root.children].forEach(ch=>{ if(ch.id) map[ch.id]=ch; });
     // player-wrap is a div without id, containing #player
     const playerWrap=document.querySelector(".player-wrap");
     if(playerWrap) map["player-wrap"]=playerWrap;
-    // The three hidden id-less extras?
+    // also handle shortcut ids
+    [...root.children].forEach(ch=>{ if(ch.id && ch.id.startsWith("shortcut-")) map[ch.id]=ch; });
     order.forEach(id=>{
       const el=map[id];
       if(el) root.appendChild(el);
@@ -112,10 +139,12 @@
   function applyGenericOrder(containerSel, order, idAttr){
     const cont=document.querySelector(containerSel);
     if(!cont) return;
+    ensureShortcutElements(cont, order);
     const map={};
     [...cont.children].forEach(ch=>{
       const key=ch.id || ch.getAttribute(idAttr)||"";
       if(key && order.includes(key)) map[key]=ch;
+      if(ch.id && ch.id.startsWith("shortcut-")) map[ch.id]=ch;
     });
     order.forEach(id=>{
       const el=map[id];
@@ -123,32 +152,92 @@
     });
   }
 
+  function injectSideShortcuts(page, cfg){
+    if(!cfg || !cfg.shortcuts) return;
+    // Generic: key = source_in_target  (e.g. dashboard_in_profile)
+    Object.entries(cfg.shortcuts).forEach(([key, ids])=>{
+      if(!Array.isArray(ids) || !ids.length) return;
+      const m=key.match(/^(.+)_in_(.+)$/);
+      if(!m) return;
+      const source=m[1], target=m[2];
+      if(target!==page) return;
+      // target is current page, inject ids from source
+      let nav=null;
+      if(target==="dashboard") nav=document.querySelector("#dash-root .side-nav");
+      else if(target==="profile") nav=document.querySelector("#prof-root .prof-side nav, #prof-root nav");
+      else if(target==="home") nav=null; // home has no side nav, skip side injection (handled as section shortcuts)
+      if(!nav) return;
+      // clear previous injected shortcuts for this source
+      nav.querySelectorAll(`[data-shortcut-source="${source}"]`).forEach(el=> el.remove());
+      const C=window.CineAura;
+      // helper to get username for profile links
+      let username="";
+      try{
+        if(C&&C.getSession){
+          const s=C.getSession(); if(s&&s.username) username=s.username;
+          if(!username){ const st=localStorage.getItem("cineaura_session"); if(st){ const j=JSON.parse(st); username=j.username||j.user||""; } }
+        }
+      }catch{}
+      ids.forEach(sid=>{
+        // avoid duplicating if target already has this id as normal item (order already contains it)
+        // create shortcut element
+        let el;
+        if(target==="dashboard"){
+          // profile/market/iptv shortcut in dashboard → link to that page
+          let href="#";
+          if(source==="profile") href = username ? `./profile.html?@${encodeURIComponent(username)}#${sid}` : `./profile.html#${sid}`;
+          else if(source==="market") href = `./market.html#${sid}`;
+          else if(source==="iptv") href = `./index.html#${sid}`;
+          else href = `./${source}.html#${sid}`;
+          el=document.createElement("a");
+          el.href=href;
+          el.className="shortcut-link";
+          el.setAttribute("data-shortcut-source", source);
+          el.setAttribute("data-shortcut-id", sid);
+          el.style.cssText="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;border:1px dashed rgba(1,180,228,.35);background:rgba(1,180,228,.08);font-size:13px;font-weight:600;color:inherit;text-decoration:none;";
+          const icon = C&&C.navIcon ? C.navIcon(sid) : "↗";
+          const label = C&&C.t ? C.t(`dash.nav.${sid}`) : sid;
+          el.innerHTML=`${icon}<span style="flex:1">${label !== `dash.nav.${sid}` ? label : sid} <small style="opacity:.6;font-size:10px">↗ ${source}</small></span>`;
+        } else if(target==="profile"){
+          // dashboard/market/iptv shortcut in profile → link to dashboard etc
+          let href="#";
+          if(source==="dashboard") href=`./dashboard.html#${sid}`;
+          else if(source==="market") href=`./market.html#${sid}`;
+          else if(source==="iptv") href=`./index.html#${sid}`;
+          else href=`./${source}.html#${sid}`;
+          el=document.createElement("a");
+          el.href=href;
+          el.className="shortcut-link";
+          el.setAttribute("data-shortcut-source", source);
+          el.setAttribute("data-shortcut-id", sid);
+          el.style.cssText="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;border:1px dashed rgba(144,206,161,.45);background:rgba(144,206,161,.08);font-size:13px;font-weight:600;color:inherit;text-decoration:none;";
+          const icon = C&&C.navIcon ? C.navIcon(sid) : "↗";
+          const label = C&&C.t ? C.t(`prof.${sid}`) : sid;
+          // profile uses button style: we adapt to <a> but keep similar
+          const lbl = label !== `prof.${sid}` ? label : sid;
+          el.innerHTML=`${icon}<span style="flex:1">${lbl} <small style="opacity:.6;font-size:10px">↗ ${source}</small></span>`;
+        }
+        if(el) nav.appendChild(el);
+      });
+    });
+  }
   function applyDashboardOrder(order){
-    // Override SECTIONS used to build side-nav if dashboard.js already rendered,
-    // we can reorder nav DOM directly
     const nav=document.querySelector("#dash-root .side-nav");
     if(!nav) return;
     const byKey={};
     [...nav.children].forEach(btn=>{
-      const k=btn.getAttribute("data-sec")||btn.dataset.sec||btn.textContent.trim().toLowerCase();
-      // side-nav buttons have data-sec via map? Check inner
-      const ds=btn.getAttribute("data-sec");
-      if(ds) byKey[ds]=btn;
+      const k=btn.getAttribute("data-section")||btn.getAttribute("data-sec")||btn.dataset.sec||btn.dataset.section||"";
+      if(k) byKey[k]=btn;
     });
-    // Need to find actual structure: buttons have data-sec? Let's just use dataset
     if(Object.keys(byKey).length===0){
-      // fallback: try to collect by text includes order key
       [...nav.querySelectorAll("button")].forEach(b=>{
         const t=b.textContent.trim().toLowerCase();
-        order.forEach(k=>{
-          if(t.includes(k)) byKey[k]=b;
-        });
+        order.forEach(k=>{ if(t.includes(k)) byKey[k]=b; });
       });
     }
-    order.forEach(k=>{
-      const el=byKey[k];
-      if(el) nav.appendChild(el);
-    });
+    order.forEach(k=>{ const el=byKey[k]; if(el) nav.appendChild(el); });
+    // inject shortcuts after reordering
+    try{ const cfg=loadConfig(); injectSideShortcuts("dashboard", cfg); }catch{}
   }
 
   function applyProfileOrder(order){
@@ -157,6 +246,7 @@
     const map={};
     [...nav.querySelectorAll("button[data-sec]")].forEach(b=> map[b.dataset.sec]=b);
     order.forEach(k=>{ const el=map[k]; if(el) nav.appendChild(el); });
+    try{ const cfg=loadConfig(); injectSideShortcuts("profile", cfg); }catch{}
   }
 
   function applyHidden(cfg, page){
