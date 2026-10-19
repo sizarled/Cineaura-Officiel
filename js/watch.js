@@ -2198,6 +2198,24 @@
   function renderProviders() {
     const el = $("#watch-providers");
     if (!el) return;
+    // If Region <select> is currently open/focused, don't destroy it — causes jump + close on open
+    try{
+      if(window._allowProvRender){ /* allow render triggered by intentional change */ }
+      else {
+        const ae=document.activeElement;
+        if(ae && ae.tagName==='SELECT' && ae.id==='prov-region' && el.contains(ae)){
+          clearTimeout(window._provDefer);
+          window._provDefer=setTimeout(()=>{ if(document.activeElement!==ae) renderProviders(); }, 500);
+          return;
+        }
+        // Also if any select inside provider panel is focused, defer
+        if(ae && ae.tagName==='SELECT' && el.contains(ae)){
+          clearTimeout(window._provDefer);
+          window._provDefer=setTimeout(renderProviders, 600);
+          return;
+        }
+      }
+    }catch{}
     // Preserve text selection — save range before destroying DOM
     let _savedRange=null, _savedSel=null;
     try {
@@ -2237,13 +2255,14 @@
         const _x = window.scrollX, _y = window.scrollY;
         state.providerRegion = e.target.value;
         state.providerQuality = "best_price";
-        renderProviders();
+        window._allowProvRender=true; renderProviders(); window._allowProvRender=false;
         loadProviderOffers(state.providerRegion);
         requestAnimationFrame(() => { try{ window._lzScrollLock=true; window.scrollTo(_x, _y); }catch{} setTimeout(()=>window._lzScrollLock=false,50); });
       };
-      // Prevent opening the select from bubbling to global handlers that scroll
+      // Prevent opening the select from bubbling to global handlers that scroll / causing jump on open
       sel.onclick = (e) => e.stopPropagation();
-      sel.onmousedown = (e) => e.stopPropagation();
+      sel.onmousedown = (e) => { e.stopPropagation(); const sx=window.scrollX, sy=window.scrollY; setTimeout(()=>{ if(Math.abs(window.scrollY-sy)>2) { window._lzScrollLock=true; window.scrollTo(sx,sy); setTimeout(()=>window._lzScrollLock=false,50); } }, 0); };
+      sel.onfocus = () => { const sx=window.scrollX, sy=window.scrollY; requestAnimationFrame(()=>{ if(Math.abs(window.scrollY-sy)>2) { try{ window._lzScrollLock=true; window.scrollTo(sx,sy);}catch{} setTimeout(()=>window._lzScrollLock=false,50); } }); };
     }
     $$(".prov-tab", el).forEach((tab) => {
       tab.onclick = (e) => {

@@ -353,6 +353,13 @@
         const main=document.querySelector('main.page-main')||document.querySelector('main');
         if((watchRoot&&isSelectionInside(watchRoot))||(main&&isSelectionInside(main))) return;
       }
+      // If a native <select> dropdown is open (Region selector on watch), don't reorder — it causes jump + close
+      const _aeSel=document.activeElement;
+      if(_aeSel && _aeSel.tagName==='SELECT'){
+        const watchRoot=document.getElementById('watch-root');
+        const main=document.querySelector('main.page-main')||document.querySelector('main');
+        if((watchRoot && watchRoot.contains(_aeSel)) || (main && main.contains(_aeSel))) return;
+      }
     }catch{}
     // Scroll-lock: prevent jump-to-top during reorder (no animated bounce)
     const _sx=window.scrollX, _sy=window.scrollY;
