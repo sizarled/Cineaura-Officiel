@@ -727,19 +727,45 @@ begin
   return 'posts' = any (feats);
 end $$;
 
--- (round 30) Opening a store needs LV1: 10 points earned (sql/point_levels.sql). The member's level,
--- the points earned and those LV1 needs; on an install without the levels nothing is asked.
---   -> { level, earned, need: 1, need_points: 10, ok }
+-- LV-gated market (2026-10-19 spec) — cumulative, see js/common.js FEATURE_MIN_LEVEL and
+-- sql/point_levels.sql. Opening a store / selling needs LV5 (100,000 PT); buying LV4
+-- (10,000 PT); auction buy LV6 (1M), auction sell LV7 (10M). Client checks are not
+-- sufficient — server enforces via these helpers and the RPCs below.
+-- For backwards compat _mkt_level() still reports LV5 as the store need.
+create or replace function public._mkt_need_level(p_feature text) returns int
+language sql immutable as $$
+  select case lower(btrim(coalesce(p_feature,'')))
+    when 'buy' then 4 when 'purchase' then 4 when 'market_buy' then 4
+    when 'sell' then 5 when 'market_sell' then 5 when 'store_open' then 5
+    when 'auction_buy' then 6 when 'auction' then 6 when 'auction_sell' then 7
+    else 0 end
+$$;
+create or replace function public._mkt_need_points(p_feature text) returns bigint
+language sql immutable as $$
+  select case public._mkt_need_level(p_feature) when 4 then 10000 when 5 then 100000 when 6 then 1000000 when 7 then 10000000 else 0 end
+$$;
+create or replace function public._mkt_has_level(p_member text, p_feature text) returns boolean
+language plpgsql stable security definer set search_path = public as $$
+declare need int := public._mkt_need_level(p_feature); lv int;
+begin
+  if need <= 0 then return true; end if;
+  if to_regprocedure('public.points_level(bigint)') is null then return true; end if;
+  lv := public.points_level(coalesce((public._points(p_member)->>'earned')::bigint, 0));
+  return lv >= need;
+end $$;
+-- Opening a store needs LV5: 100,000 points earned (sql/point_levels.sql). The member's level,
+-- the points earned and those LV5 needs; on an install without the levels nothing is asked.
+--   -> { level, earned, need: 5, need_points: 100000, ok }
 create or replace function public._mkt_level(p_member text) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare earned bigint; lv int;
 begin
   earned := coalesce((public._points(p_member)->>'earned')::bigint, 0);
   if to_regprocedure('public.points_level(bigint)') is null then
-    return jsonb_build_object('level', null, 'earned', earned, 'need', 1, 'need_points', 10, 'ok', true);
+    return jsonb_build_object('level', null, 'earned', earned, 'need', 5, 'need_points', 100000, 'ok', true);
   end if;
   lv := public.points_level(earned);
-  return jsonb_build_object('level', lv, 'earned', earned, 'need', 1, 'need_points', 10, 'ok', lv >= 1);
+  return jsonb_build_object('level', lv, 'earned', earned, 'need', 5, 'need_points', 100000, 'ok', lv >= 5);
 end $$;
 
 create or replace function public._mkt_int(p text) returns int language sql immutable as $$
@@ -1256,7 +1282,7 @@ end $$;
 -- Market.html > Store settings. d = { name, description, logo_url?, cover_url?, links: [{label,url}],
 -- is_open, scope, country, city, sale_mode, shipping, returns, return_days }
 --   -> { ok: true, id, created } | { ok: false, reason: member | blocked | level (level, earned, need,
---      need_points: a new store needs LV1) | name | description | links | logo | cover | scope | country |
+--      need_points: a new store needs LV5 (100k)) | name | description | links | logo | cover | scope | country |
 --      city | sale_mode | return_days }
 create or replace function public.market_store_save(p_member text, d jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -1353,7 +1379,7 @@ end $$;
 -- delivers its sold orders that were waiting.
 --   -> { ok: true, id, created, store_id } | { ok: false, reason: member | blocked | title | description |
 --      kind | price | shipping_cost | stock | categories | images | video | commission | download | limit |
---      suspended | not_found | level (no store yet and below LV1: level, earned, need, need_points) }
+--      suspended | not_found | level (no store yet and below LV5: level, earned, need, need_points) }
 create or replace function public.market_product_save(p_member text, d jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
@@ -1367,7 +1393,7 @@ begin
   if public._mkt_blocked(m.member_id, true) then return jsonb_build_object('ok', false, 'reason', 'blocked'); end if;
   d := coalesce(d, '{}'::jsonb);
   pid := nullif(btrim(coalesce(d->>'id', '')), '');
-  -- (round 30) a first product opens the store: LV1 needed (a store that exists keeps working)
+  -- (round 30) a first product opens the store: LV5 needed (a store that exists keeps working)
   if pid is null and not exists (select 1 from public.market_stores where owner_id = m.member_id) then
     lv := public._mkt_level(m.member_id);
     if not (lv->>'ok')::boolean then return jsonb_build_object('ok', false, 'reason', 'level') || (lv - 'ok'); end if;
@@ -1875,6 +1901,12 @@ begin
   m := public._mkt_member(p_member);
   if m.member_id is null then return jsonb_build_object('ok', false, 'reason', 'member'); end if;
   if public._mkt_blocked(m.member_id, false) then return jsonb_build_object('ok', false, 'reason', 'blocked'); end if;
+  -- LV4 (10k PT) to buy in market
+  if not public._mkt_has_level(m.member_id, 'buy') then
+    return jsonb_build_object('ok', false, 'reason', 'level', 'need', 4, 'need_points', 10000,
+                              'level', public.points_level(coalesce((public._points(m.member_id)->>'earned')::bigint,0)),
+                              'earned', coalesce((public._points(m.member_id)->>'earned')::bigint,0));
+  end if;
   select * into p from public.market_products where id = btrim(coalesce(p_product, '')) for update;
   if not found or p.status <> 'active' then return jsonb_build_object('ok', false, 'reason', 'not_found'); end if;
   select * into st from public.market_stores where id = p.store_id;

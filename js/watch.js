@@ -70,10 +70,26 @@
   const CODE_LOCK_MS = 24 * 60 * 60 * 1000;
   const CODE_LOCK_KEY = "cineaura_code_lockout";
   const params = new URLSearchParams(location.search);
-  const movieId = params.get("movie");
-  const tvId = params.get("tv");
+  let movieId = params.get("movie");
+  let tvId = params.get("tv");
+  // Generic fallbacks: ?tmdb= / ?id= / ?tmdb_id= — with optional ?type=movie|tv
+  const genericId = params.get("tmdb") || params.get("id") || params.get("tmdb_id");
+  if (!movieId && !tvId && genericId) {
+    const t = (params.get("type") || params.get("media") || "movie").toLowerCase();
+    if (t === "tv" || t === "series" || t === "show") tvId = genericId;
+    else movieId = genericId;
+  }
+  // Demo fallback for direct visits / editor without ID: TMDB 530 (editable content)
+  // User requested watch page must always show a title, defaulting to tmdb=530.
+  if (!movieId && !tvId) {
+    const hashId = (() => { try { const h = new URLSearchParams(location.hash.replace(/^#/, "")); return h.get("tmdb") || h.get("movie") || h.get("id"); } catch { return null; }})();
+    if (hashId) movieId = hashId;
+    else movieId = "530";
+  }
   const mediaType = tvId ? "tv" : "movie";
   const mediaId = tvId || movieId;
+  const hadExplicitId = Boolean(params.get("movie") || params.get("tv") || params.get("tmdb") || params.get("id") || params.get("tmdb_id"));
+  const isFallbackDemo = !hadExplicitId;
   // Post attribution: links shared inside a post look like
   // /watch.html?movie=123&post=P456 — the watched minutes go to the post owner.
   const postId = params.get("post") || "";
@@ -737,7 +753,7 @@
       return;
     }
     if (state.gated) {
-      $("#code-input")?.focus();
+      $("#code-input")?.focus({ preventScroll: true });
       toast(t("watch.enterFirst"));
       return;
     }
@@ -759,6 +775,12 @@
     else playEmbed();
   }
 
+  // Only scroll when the target is off-screen — avoids the "jump to top" on every click
+  function maybeScrollTo(el, opts = { behavior: "smooth", block: "nearest" }) {
+    // Disabled per user request: do not auto-scroll on any button/menu click
+    return;
+  }
+
   /* Choosing a watch link stops what plays and brings the play button back, with
      the runtime under it: nothing loads and no minute counts before the press on
      play. The link that is already playing goes on. */
@@ -766,7 +788,7 @@
     const current = state.playingLink;
     const playing = Boolean(current) && !state.gated && $("#player")?.classList.contains("is-playing");
     if (playing && (current === row || (current.isMain && row.isMain))) {
-      $("#player")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      maybeScrollTo($("#player"), { behavior: "smooth", block: "nearest" });
       return;
     }
     state.playLink = row;
@@ -775,7 +797,7 @@
     state.playingLink = null;
     showIdle();
     setIdleArt();
-    $("#player")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    maybeScrollTo($("#player"), { behavior: "smooth", block: "nearest" });
   }
 
   function linkHost(url) {
@@ -821,6 +843,7 @@
       const playlistId = $("#pl-pick").value;
       if (!playlistId) return;
       if (!(await window.CineAura.guardFeature("posts"))) return;
+      if (!(await window.CineAura.guardLevel("create_content"))) return;
       const exists = await supabaseRequest(
         `/rest/v1/playlist_items?playlist_id=eq.${restValue(playlistId)}&tmdb_id=eq.${Number(mediaId)}&select=id`
       );
@@ -1175,6 +1198,7 @@
   async function publishRecPost(kind, title, body) {
     const session = getSession();
     if (!(await window.CineAura.guardFeature("posts"))) return { ok: false, blocked: true };
+    if (!(await window.CineAura.guardLevel("create_content"))) return { ok: false, blocked: true };
     const postId = newPostId();
     const saved = await supabaseRequest("/rest/v1/posts", {
       method: "POST",
@@ -1527,6 +1551,7 @@
       const picked = $("#rec-pick").value;
       if (!picked) return;
       if (!(await window.CineAura.guardFeature("posts"))) return;
+      if (!(await window.CineAura.guardLevel("create_content"))) return;
       const dup = await supabaseRequest(
         `/rest/v1/post_items?post_id=eq.${restValue(picked)}&tmdb_id=eq.${Number(mediaId)}&select=id`
       );
@@ -1850,6 +1875,8 @@
     }
 
     const button = $("#al-save");
+    if (!(await C.guardFeature("links"))) { button.disabled = false; return; }
+    if (!(await C.guardLevel("publish_links"))) { button.disabled = false; return; }
     button.disabled = true;
     // One row per chosen kind: watch (opens in the player), download (opens on
     // its own site) or both at once. A kind this URL already has is skipped.
@@ -2176,6 +2203,42 @@
   function renderProviders() {
     const el = $("#watch-providers");
     if (!el) return;
+    // If Region <select> is currently open/focused, don't destroy it — causes jump + close on open
+    try{
+      if(window._allowProvRender){ /* allow render triggered by intentional change */ }
+      else {
+        const ae=document.activeElement;
+        if(ae && ae.tagName==='SELECT' && ae.id==='prov-region' && el.contains(ae)){
+          clearTimeout(window._provDefer);
+          window._provDefer=setTimeout(()=>{ if(document.activeElement!==ae) renderProviders(); }, 500);
+          return;
+        }
+        // Also if any select inside provider panel is focused, defer
+        if(ae && ae.tagName==='SELECT' && el.contains(ae)){
+          clearTimeout(window._provDefer);
+          window._provDefer=setTimeout(renderProviders, 600);
+          return;
+        }
+      }
+    }catch{}
+    // Preserve text selection — save range before destroying DOM
+    let _savedRange=null, _savedSel=null;
+    try {
+      const sel = window.getSelection && window.getSelection();
+      if (sel && sel.rangeCount && !sel.isCollapsed && sel.toString().trim()) {
+        const anchor = sel.anchorNode && sel.anchorNode.parentElement;
+        const focus = sel.focusNode && sel.focusNode.parentElement;
+        const inside = (anchor && el.contains(anchor)) || (focus && el.contains(focus));
+        if (inside) {
+          // try to save range to restore after re-render
+          _savedSel=sel;
+          try{ _savedRange=sel.getRangeAt(0).cloneRange(); }catch{ _savedRange=null; }
+          // will restore after render instead of early return
+        }
+      }
+    } catch {}
+    // Preserve scroll position — changing Region/quality re-renders this panel and previously jumped to top
+    const _sx = window.scrollX, _sy = window.scrollY;
     el.hidden = false;
     const regions = providerRegions();
     if (!regions.length) {
@@ -2184,6 +2247,7 @@
           <h2>${t("watch.providers")}</h2>
           <p class="muted">${t("watch.noProviders")}</p>
         </div></div>`;
+      requestAnimationFrame(() => { try{ window._lzScrollLock=true; window.scrollTo(_sx, _sy); }catch{} setTimeout(()=>window._lzScrollLock=false,50); if(_savedRange&&_savedSel) try{_savedSel.removeAllRanges();_savedSel.addRange(_savedRange);}catch{} });
       return;
     }
     const region = regions.includes(state.providerRegion) ? state.providerRegion : regions[0];
@@ -2192,17 +2256,32 @@
     const sel = $("#prov-region");
     if (sel) {
       sel.onchange = (e) => {
+        e.preventDefault?.(); e.stopPropagation?.();
+        const _x = window.scrollX, _y = window.scrollY;
         state.providerRegion = e.target.value;
         state.providerQuality = "best_price";
-        renderProviders();
+        window._allowProvRender=true; renderProviders(); window._allowProvRender=false;
         loadProviderOffers(state.providerRegion);
+        requestAnimationFrame(() => { try{ window._lzScrollLock=true; window.scrollTo(_x, _y); }catch{} setTimeout(()=>window._lzScrollLock=false,50); });
       };
+      // Prevent opening the select from bubbling to global handlers that scroll / causing jump on open
+      sel.onclick = (e) => e.stopPropagation();
+      sel.onmousedown = (e) => { e.stopPropagation(); const sx=window.scrollX, sy=window.scrollY; setTimeout(()=>{ if(Math.abs(window.scrollY-sy)>2) { window._lzScrollLock=true; window.scrollTo(sx,sy); setTimeout(()=>window._lzScrollLock=false,50); } }, 0); };
+      sel.onfocus = () => { const sx=window.scrollX, sy=window.scrollY; requestAnimationFrame(()=>{ if(Math.abs(window.scrollY-sy)>2) { try{ window._lzScrollLock=true; window.scrollTo(sx,sy);}catch{} setTimeout(()=>window._lzScrollLock=false,50); } }); };
     }
     $$(".prov-tab", el).forEach((tab) => {
-      tab.onclick = () => {
+      tab.onclick = (e) => {
+        e.preventDefault?.(); e.stopPropagation?.();
+        const _x = window.scrollX, _y = window.scrollY;
         state.providerQuality = tab.dataset.quality || "best_price";
         renderProviders();
+        requestAnimationFrame(() => { try{ window._lzScrollLock=true; window.scrollTo(_x, _y); }catch{} setTimeout(()=>window._lzScrollLock=false,50); });
       };
+    });
+    // Prevent label wrapper from causing scroll propagation
+    el.querySelectorAll(".prov-region, .prov-controls, .links-head").forEach((w) => {
+      w.addEventListener("click", (e) => e.stopPropagation(), { capture: true });
+      w.addEventListener("mousedown", (e) => e.stopPropagation(), { capture: true });
     });
     // A logo TMDB no longer serves falls back to the platform's initial.
     $$(".provider-logo", el).forEach((img) => {
@@ -2214,6 +2293,14 @@
         mono.textContent = String(img.dataset.name || "?").slice(0, 1).toUpperCase();
         img.replaceWith(mono);
       };
+    });
+    // Final restore for direct calls (e.g. loadProviderOffers) — plus restore selection if we saved it
+    requestAnimationFrame(() => {
+      try{ window._lzScrollLock=true; window.scrollTo(_sx, _sy); setTimeout(()=>window._lzScrollLock=false,50); }catch{}
+
+      if(_savedRange && _savedSel){
+        try{ _savedSel.removeAllRanges(); _savedSel.addRange(_savedRange); }catch{}
+      }
     });
   }
 
@@ -2686,7 +2773,7 @@
     markActiveCard(row);
     renderLinkDetail(row);
     if (!row.isMain && linkKindOf(row) === "download") {
-      $("#link-detail")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      maybeScrollTo($("#link-detail"), { behavior: "smooth", block: "nearest" });
       return;
     }
     armLink(row);
@@ -2876,21 +2963,24 @@
         </section>`
         ).join("")}
       </div>`;
-    $("#add-link-btn").onclick = openAddLinkModal;
+    $("#add-link-btn").onclick = (e) => { e.preventDefault?.(); openAddLinkModal(); };
     el.onclick = (e) => {
       const report = e.target.closest("[data-report]");
       if (report) {
+        e.preventDefault?.();
         const row = state.linkOrder[Number(report.dataset.report)];
         if (row) openReportModal(row);
         return;
       }
       const scroll = e.target.closest("[data-rail-scroll]");
       if (scroll) {
+        e.preventDefault?.();
         scrollRail(scroll);
         return;
       }
       const open = e.target.closest("[data-open]");
       if (!open) return;
+      e.preventDefault?.();
       const row = state.linkOrder[Number(open.dataset.open)];
       if (row) selectLink(row);
     };
@@ -2903,6 +2993,7 @@
         const sel = state.selectedLink;
         if (!sel) return;
         if (e.target.closest("[data-report-sel]")) {
+          e.preventDefault?.();
           openReportModal(sel);
           return;
         }
@@ -3132,7 +3223,7 @@
 
   async function onPlay() {
     if (state.gated) {
-      $("#code-input").focus();
+      $("#code-input")?.focus({ preventScroll: true });
       return;
     }
     if (ageLocked()) {
@@ -3361,6 +3452,50 @@
     history.replaceState({}, "", canonicalUrl());
   }
 
+  function renderDemoNotice() {
+    if (!isFallbackDemo) return;
+    if (document.getElementById("watch-demo-notice")) return;
+    const root = document.getElementById("watch-root");
+    if (!root) return;
+    const bar = document.createElement("div");
+    bar.id = "watch-demo-notice";
+    bar.setAttribute("data-ce-ignore","1");
+    bar.className = "glass";
+    bar.style.cssText = "margin:12px 0 14px;padding:12px 14px;border-radius:14px;border:1px dashed rgba(1,180,228,.45);background:rgba(1,180,228,.08);display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;";
+    // Show TMDB 530 demo with quick switch between movie and series and custom ID input
+    bar.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:#01b4e4;color:#032541;font-weight:800;font-size:12px;">تجريبي · TMDB ${escapeHtml(mediaId)} · ${mediaType==="tv"?"مسلسل":"فيلم"}</span>
+        <span style="font-size:13px;color:var(--muted)">صفحة المشاهدة تعرض الآن <b>المعرف الافتراضي 530</b> حتى بدون رابط — عدّل الترتيب من الداشبورد › الإعدادات › <b>تخصيص الموقع → معاينة قبل التطبيق</b>.</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <a class="btn btn-sm btn-primary" href="watch.html?movie=530" style="text-decoration:none;">فيلم 530</a>
+        <a class="btn btn-sm btn-ghost" href="watch.html?tv=1399" style="text-decoration:none;">مسلسل تجريبي (TV 1399)</a>
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;">ID: <input id="demo-tmdb-input" type="number" min="1" placeholder="530" value="${escapeHtml(mediaId)}" style="width:96px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--sub-bg);color:inherit;"></label>
+        <select id="demo-tmdb-type" style="padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--sub-bg);color:inherit;">
+          <option value="movie" ${mediaType==="movie"?"selected":""}>فيلم</option>
+          <option value="tv" ${mediaType==="tv"?"selected":""}>مسلسل</option>
+        </select>
+        <button class="btn btn-sm btn-primary" id="demo-tmdb-go" type="button">عرض</button>
+        <button class="btn btn-sm btn-ghost" id="demo-tmdb-edit" type="button">✎ تعديل</button>
+      </div>`;
+    root.prepend(bar);
+    bar.querySelector("#demo-tmdb-go")?.addEventListener("click", () => {
+      const id = (bar.querySelector("#demo-tmdb-input").value || "").trim() || "530";
+      const type = bar.querySelector("#demo-tmdb-type").value || "movie";
+      const url = `watch.html?${type}=${encodeURIComponent(id)}`;
+      location.href = url;
+    });
+    bar.querySelector("#demo-tmdb-edit")?.addEventListener("click", () => {
+      // visual editor removed — route to normal watch view; customize via Dashboard → تخصيص الموقع → معاينة
+      const id = (bar.querySelector("#demo-tmdb-input").value || "").trim() || "530";
+      const type = bar.querySelector("#demo-tmdb-type").value || "movie";
+      const url = `watch.html?${type}=${encodeURIComponent(id)}`;
+      location.href = url;
+    });
+    bar.querySelector("#demo-tmdb-input")?.addEventListener("keydown", (e) => { if(e.key==="Enter") bar.querySelector("#demo-tmdb-go").click(); });
+  }
+
   // Share row under the player. The shared link keeps its parameters, e.g.
   // /watch.html?tv=34587&season=1&episode=1&Playlist=IDP104059407
   function renderShareRow() {
@@ -3455,6 +3590,23 @@
     $("#episode-select").addEventListener("change", (e) => {
       loadSeason(state.season, Number(e.target.value));
     });
+    // Fix: any button press should NOT jump to top — prevent hash “#” links and form submits from scrolling
+    document.addEventListener("click", (e) => {
+      const a = e.target.closest('a[href="#"], a[href=""], a[href="javascript:void(0)"], a[href="javascript:;"]');
+      if (a) e.preventDefault();
+      // Same-page hash links like ./#search from watch.html would scroll watch page to top (no target) — let them navigate to index instead
+      const hashLink = e.target.closest('a[href^="./#"]');
+      if (hashLink && location.pathname.toLowerCase().includes("watch")) {
+        e.preventDefault();
+        const hash = hashLink.getAttribute("href").replace(/^\.\//, "");
+        location.href = "./index.html" + hash.slice(1);
+      }
+    }, true);
+    document.addEventListener("submit", (e) => {
+      // The watch page has no forms; any stray submit would reload and scroll to top
+      if (e.target.closest("#watch-root, #player, #player-gate")) e.preventDefault();
+    }, true);
+
     // Site Settings (or the first IP lookup) may change the region.
     document.addEventListener("cineaura:geo", () => {
       state.providerRegion = pickProviderRegion(currentCountry());
@@ -3467,9 +3619,12 @@
 
   async function init() {
     bind();
+    // Show demo banner immediately for fallback visits (tmdb 530) so editor is usable
+    try { renderDemoNotice(); } catch {}
     if (!mediaId) {
       $("#page-loader")?.remove();
       $("#watch-root").innerHTML = `<div class="glass page-error"><h2>${t("watch.nothing")}</h2><p>${t("watch.openCat")}</p><a class="btn btn-lg btn-primary" href="./">${t("watch.backHome")}</a></div>`;
+      try { renderDemoNotice(); } catch {}
       return;
     }
 
@@ -3502,6 +3657,9 @@
         await loadWatchMinutes();
         renderInfo();
         await renderWatchExtras();
+        // Keep URL in sync for fallback demo (movie 530) so refresh/bookmark retains the title
+        try { syncUrl(); } catch {}
+        try { renderDemoNotice(); } catch {}
       }
 
       renderCollection();

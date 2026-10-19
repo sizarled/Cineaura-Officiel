@@ -213,11 +213,18 @@ html[data-theme="day"] .mkt-tier.t-B { --tier: #b07a00; }
 .hh-way-ico { flex: none; width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; font-size: 11px; color: var(--cyan); background: rgba(1, 180, 228, 0.14); }
 .hh-ways .btn { align-self: flex-start; }
 .hh-ladder-list { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.hh-ladder-list li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 10px; background: var(--sub-bg, rgba(255, 255, 255, 0.05)); font-size: 13px; position: relative; }
+.hh-ladder-list li { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border-radius: 10px; background: var(--sub-bg, rgba(255, 255, 255, 0.05)); font-size: 13px; position: relative; }
 .hh-ladder-list li span { color: var(--muted); font-variant-numeric: tabular-nums; }
 .hh-ladder-list li i { font-style: normal; font-weight: 800; color: var(--green, #90cea1); }
 .hh-ladder-list li.is-you { outline: 2px solid var(--cyan); background: rgba(1, 180, 228, 0.14); }
 .hh-ladder-list li em { position: absolute; top: -8px; inset-inline-end: 8px; padding: 0 7px; border-radius: 999px; background: var(--cyan); color: #fff; font-style: normal; font-size: 10px; font-weight: 800; line-height: 16px; text-transform: uppercase; letter-spacing: 0.06em; }
+.hh-ladder-main { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; width: 100%; }
+.hh-lv-perm { display: block; font-size: 11px; line-height: 1.35; color: var(--muted); white-space: normal; overflow-wrap: anywhere; }
+.hh-ladder-intro { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.hh-ladder-hint { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); }
+.hh-ladder-hint a { color: var(--cyan); text-decoration: none; font-weight: 600; }
+.hh-ladder-hint a:hover { text-decoration: underline; }
+.hh-me-actions { align-items: center; }
 
 @media (max-width: 1080px) {
   .hh-new-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

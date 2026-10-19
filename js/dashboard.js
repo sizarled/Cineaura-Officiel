@@ -24,6 +24,7 @@
     translateDom,
     getLang,
     getTheme,
+    getStyle,
     validWatchUrl,
     linkQualityOptions,
     qualityPickerHtml,
@@ -331,6 +332,7 @@
     main.onclick = null;
     const map = {
       overview: viewOverview,
+      level: viewLevel,
       points: viewPoints,
       withdraw: viewWithdraw,
       playlists: viewPlaylists,
@@ -455,6 +457,7 @@
         <div class="ov-head">
           <h2 id="ov-points-h">${t("points.title")}</h2>
           <div class="ov-head-btns">
+            <button class="btn btn-sm btn-ghost" type="button" data-section="level">${C.navIcon("level")}<span>${t("dash.nav.level")}</span></button>
             <button class="btn btn-sm btn-primary" type="button" data-section="points">${t("points.earnBtn")}</button>
             <button class="btn btn-sm btn-ghost" type="button" data-section="prizes">${t("dash.ov.toPrizes")}</button>
           </div>
@@ -464,6 +467,11 @@
           <div class="stat"><b data-pt="earned">…</b><span>${t("points.earned")}</span></div>
           <div class="stat"><b data-pt="spent">…</b><span>${t("points.spent")}</span></div>
           <div class="stat ov-level" data-pt-level hidden><b><bdi dir="ltr" data-pt="level"></bdi></b><span data-pt="mult"></span></div>
+        </div>
+        <div id="ov-level-detail" hidden>
+          <div class="pt-lv-bar ov-lv-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="ov-lv-bar"><span id="ov-lv-fill" style="width:0%"></span></div>
+          <p class="muted" id="ov-lv-msg" style="margin:6px 0 0;font-size:12.5px"></p>
+          <p style="margin:8px 0 0"><a class="btn btn-sm btn-ghost" href="#level" data-section="level">${t("level.title")} →</a></p>
         </div>
         <p class="muted" id="ov-points-msg">${t("points.loading")}</p>
         <details class="ov-more" id="ov-points-more" hidden>
@@ -481,6 +489,28 @@
           <button class="btn btn-sm btn-ghost" type="button" data-section="codes">${t("dash.ov.manage")}</button>
         </div>
         <div class="ov-codes" id="ov-codes"><p class="muted">${t("common.loading")}</p></div>
+      </section>
+
+      <section class="ov-block" aria-labelledby="ov-level-h">
+        <div class="ov-head">
+          <div>
+            <h2 id="ov-level-h">${t("dash.nav.level")}</h2>
+            <p class="muted">${t("level.lead")}</p>
+          </div>
+          <button class="btn btn-sm btn-ghost" type="button" data-section="level">${t("level.title")} →</button>
+        </div>
+        <div id="ov-level-embed"><p class="muted">${t("common.loading")}</p></div>
+      </section>
+
+      <section class="ov-block" id="ov-panel-block" aria-labelledby="ov-panel-h" ${state.panelVisible ? "" : "hidden"}>
+        <div class="ov-head">
+          <div>
+            <h2 id="ov-panel-h">${t("nav.panel")}</h2>
+            <p class="muted">${t("pa.ov.lead") || t("panel.ov.lead") || "Staff moderation, members and reports"}</p>
+          </div>
+          <a class="btn btn-sm btn-primary" href="./Panel.html">${t("nav.panel")} →</a>
+        </div>
+        <div class="ov-panel-body" id="ov-panel-body"><p class="muted">${t("pa.ov.lead") || "Manage members, reports, market and more"}</p><p style="margin-top:8px"><a class="btn btn-sm btn-ghost" href="./Panel.html">${t("common.open")} ${t("nav.panel")}</a></p></div>
       </section>`;
 
     const memberId = m.member_id;
@@ -503,6 +533,43 @@
       lvStat.querySelector('[data-pt="mult"]').textContent = t("points.levelMult", { n: mp.level.multiplier });
       lvStat.hidden = false;
     }
+    const ovLv = main.querySelector("#ov-level-detail");
+    const ovFill = main.querySelector("#ov-lv-fill");
+    const ovBar = main.querySelector("#ov-lv-bar");
+    const ovMsg = main.querySelector("#ov-lv-msg");
+    if (ovLv && mp?.level) {
+      const pct = Math.round((mp.level.progress || 0) * 100);
+      if (ovFill) ovFill.style.width = pct + "%";
+      if (ovBar) ovBar.setAttribute("aria-valuenow", String(pct));
+      if (ovMsg) ovMsg.textContent = mp.level.next ? `${t("level.remaining",{n: Math.max(0, mp.level.next.at - mp.level.earned), next: mp.level.next.name})} · ${t("level.progressLabel",{pct, next: mp.level.next.name})}` : t("level.maxReached");
+      ovLv.hidden = false;
+    }
+    // Level + Panel embedded under Overview (requested: قسم المستوى والبانل تحت النظرة العامة)
+    const ovLevelEmbed = main.querySelector("#ov-level-embed");
+    if (ovLevelEmbed && mp?.level) {
+      const lv = mp.level;
+      const have = lv.earned;
+      const next = lv.next;
+      const toGo = next ? Math.max(0, next.at - have) : 0;
+      const pct = Math.round(lv.progress * 100);
+      const fmt = (n)=>{ try{ return Number(n).toLocaleString(C.getLocale()); } catch { return String(n); } };
+      const hero = next
+        ? `<div class="pt-level lv-hero" data-level="${lv.level}"><span class="pt-lv-badge"><bdi dir="ltr">${escapeHtml(lv.name)}</bdi></span><div class="pt-lv-main"><div class="pt-lv-top"><b>${escapeHtml(t("level.current"))}: ${escapeHtml(lv.name)} · ${escapeHtml(t("level.multiplier",{n: lv.multiplier}))}</b><span class="pt-lv-next">${escapeHtml(t("level.earned",{n: fmt(have)}))} · ${escapeHtml(t("level.remaining",{n: fmt(toGo), next: next.name}))}</span></div><div class="pt-lv-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><span style="width:${pct}%"></span></div></div></div>`
+        : `<div class="pt-level lv-hero" data-level="${lv.level}"><span class="pt-lv-badge"><bdi dir="ltr">${escapeHtml(lv.name)}</bdi></span><div class="pt-lv-main"><div class="pt-lv-top"><b>${escapeHtml(t("level.current"))}: ${escapeHtml(lv.name)} · ${escapeHtml(t("level.multiplier",{n: lv.multiplier}))}</b><span class="pt-lv-next">${escapeHtml(t("level.maxReached"))}</span></div><div class="pt-lv-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><span style="width:100%"></span></div></div></div>`;
+      const rows = C.POINT_LEVELS.slice(0,8).map((at,i)=>{
+        const isCur = i===lv.level;
+        const unlocked = lv.level>=i;
+        const permKey = C.LEVEL_PERMS[i]||"level.perm.max";
+        const perm = t(permKey);
+        const status = isCur ? `<span class="lv-badge is-cur">${escapeHtml(t("level.statusCurrent"))}</span>` : unlocked ? `<span class="lv-badge is-on">${escapeHtml(t("level.statusUnlocked"))}</span>` : `<span class="lv-badge is-off">${escapeHtml(t("level.statusLocked"))}</span>`;
+        return `<tr class="${isCur?"is-you":""}"><td><bdi dir="ltr">${escapeHtml(C.levelName(i))}</bdi></td><td><bdi dir="ltr">${fmt(at)}</bdi></td><td>${escapeHtml(perm)}</td><td>${status}</td></tr>`;
+      }).join("");
+      ovLevelEmbed.innerHTML = `${hero}<div class="glass lv-perms" style="margin-top:12px;padding:12px"><h3 style="margin:0 0 6px;font-size:15px">${escapeHtml(t("level.permissionsTitle"))}</h3><div style="overflow:auto"><table class="pt-table lv-table"><thead><tr><th>${escapeHtml(t("level.colLevel"))}</th><th>${escapeHtml(t("level.colPoints"))}</th><th>${escapeHtml(t("level.colUnlocks"))}</th><th>${escapeHtml(t("level.colStatus"))}</th></tr></thead><tbody>${rows}</tbody></table></div><p class="muted" style="margin:8px 0 0">${escapeHtml(t("level.hint"))}</p><p style="margin:8px 0 0"><a class="btn btn-sm btn-ghost" href="#level" data-section="level">${escapeHtml(t("level.title"))} →</a></p></div>`;
+    } else if (ovLevelEmbed && !mp?.level) {
+      ovLevelEmbed.innerHTML = `<p class="muted">${escapeHtml(t("points.loadFail"))}</p>`;
+    }
+    const ovPanelBlock = main.querySelector("#ov-panel-block");
+    if (ovPanelBlock) ovPanelBlock.hidden = !state.panelVisible;
     if (mp) {
       main.querySelector("#ov-points-box").innerHTML = C.pointsHtml(mp);
       main.querySelector("#ov-points-more").hidden = false;
@@ -783,6 +850,7 @@
 
   async function copyPlaylist(pl) {
     if (!(await C.guardFeature("posts"))) return;
+    if (!(await C.guardLevel("create_content"))) return;
     const base = String(listLabel(pl)).replace(/\s+\d+$/, "").trim();
     const esc = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const re = new RegExp("^" + esc + "(?:\\s+(\\d+))?$", "i");
@@ -946,6 +1014,7 @@
     };
     $("#pl-create").onclick = async () => {
       if (!(await C.guardFeature("posts"))) return;
+    if (!(await C.guardLevel("create_content"))) return;
       const name = $("#pl-name").value.trim();
       const description = $("#pl-desc").value.trim();
       if (!name) return toast(t("dash.nameList"));
@@ -1244,6 +1313,7 @@
     drawRows("#lk-series", tvRows, "tv");
     $("#lk-save").onclick = async () => {
       if (!(await C.guardFeature("links"))) return;
+      if (!(await C.guardLevel("publish_links"))) return;
       const type = $("#lk-type").value;
       const tmdbId = parseTmdbInput($("#lk-tmdb").value, type);
       const watchUrl = $("#lk-watch").value.trim();
@@ -2362,7 +2432,7 @@
     const totalMinutes = Number(state.profile?.private_minutes || 0) + Number(state.profile?.public_minutes || 0);
     const active = normalizeAccountStatus(state.member.status) === "active";
     const now = Date.now();
-    const country = String(state.profile?.country || state.member.country || "").trim().toLowerCase();
+    const country = String(state.member.country || state.profile?.country || "").trim().toLowerCase();
     const username = String(state.member.username || "").trim().toLowerCase();
     const memberKey = String(memberId || "").trim().toLowerCase();
     const ageYears = (iso) => {
@@ -2460,7 +2530,10 @@
       const quota = limits && usage && R?.limitCheck
         ? R.limitCheck(limits, state.member.membership_type, key, usage)
         : { ok: true };
-      const canJoin = timing.open && !mine && !full && baseOk && audienceOk && quota.ok && totalPoints >= cost;
+      const needLv = key === "challenge" ? 2 : key === "lottery" ? 3 : key === "gift" ? 3 : 0;
+      const haveLv = C.pointLevel(mp.earned);
+      const levelOk = haveLv >= needLv;
+      const canJoin = timing.open && !mine && !full && baseOk && audienceOk && quota.ok && totalPoints >= cost && levelOk;
       return { mine, timing, full, won, cap, cost, baseOk, audienceOk, quota, canJoin };
     };
     const plainWinner = (p) => winners.some((winner) =>
@@ -3052,6 +3125,42 @@
     });
   }
 
+  // ---------- Level: current LV, progress to next, permissions per level (LV0…LV7) ----------
+  async function viewLevel(main) {
+    main.innerHTML = `\n      <p class="eyebrow">${t("dash.nav.level")}</p>\n      <h1>${escapeHtml(t("level.title"))}</h1>\n      <p class="muted">${escapeHtml(t("level.lead"))}</p>\n      <div id="lv-body"><p class="muted">${escapeHtml(t("common.loading"))}</p></div>`;
+    const body = main.querySelector("#lv-body");
+    let mp;
+    try {
+      const prof = await supabaseRequest(`/rest/v1/profiles?member_id=eq.${restValue(state.member.member_id)}&select=*`);
+      if (prof.ok && Array.isArray(prof.data) && prof.data[0]) state.profile = { ...(state.profile || {}), ...prof.data[0] };
+      mp = await C.memberPoints(state.member.member_id, state.profile || {});
+    } catch {
+      if (body) body.innerHTML = `<p class="empty">${escapeHtml(t("points.loadFail"))}</p>`;
+      return;
+    }
+    if (!main.isConnected || state.section !== "level") return;
+    const lv = mp.level;
+    const have = lv.earned;
+    const next = lv.next;
+    const toGo = next ? Math.max(0, next.at - have) : 0;
+    const pct = Math.round(lv.progress * 100);
+    const fmt = (n) => { try { return Number(n).toLocaleString(C.getLocale()); } catch { return String(n); } };
+    const hero = next
+      ? `<div class="pt-level lv-hero" data-level="${lv.level}">\n          <span class="pt-lv-badge"><bdi dir="ltr">${escapeHtml(lv.name)}</bdi></span>\n          <div class="pt-lv-main">\n            <div class="pt-lv-top"><b>${escapeHtml(t("level.current"))}: ${escapeHtml(lv.name)} · ${escapeHtml(t("level.multiplier",{n: lv.multiplier}))}</b><span class="pt-lv-next">${escapeHtml(t("level.earned",{n: fmt(have)}))} · ${escapeHtml(t("level.remaining",{n: fmt(toGo), next: next.name}))}</span></div>\n            <div class="pt-lv-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${escapeHtml(t("level.progressLabel",{pct, next: next.name}))}"><span style="width:${pct}%"></span></div>\n            <small class="muted">${escapeHtml(t("level.nextIn",{need: fmt(next.at), next: next.name}))} — ${escapeHtml(t("level.progressLabel",{pct, next: next.name}))}</small>\n          </div>\n        </div>`
+      : `<div class="pt-level lv-hero" data-level="${lv.level}">\n          <span class="pt-lv-badge"><bdi dir="ltr">${escapeHtml(lv.name)}</bdi></span>\n          <div class="pt-lv-main">\n            <div class="pt-lv-top"><b>${escapeHtml(t("level.current"))}: ${escapeHtml(lv.name)} · ${escapeHtml(t("level.multiplier",{n: lv.multiplier}))}</b><span class="pt-lv-next">${escapeHtml(t("level.maxReached"))}</span></div>\n            <div class="pt-lv-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><span style="width:100%"></span></div>\n          </div>\n        </div>`;
+    const rows = C.POINT_LEVELS.map((at, i) => {
+      const isCur = i === lv.level;
+      const unlocked = lv.level >= i;
+      const permKey = C.LEVEL_PERMS[i] || "level.perm.max";
+      const perm = t(permKey);
+      const status = isCur ? `<span class="lv-badge is-cur">${escapeHtml(t("level.statusCurrent"))}</span>` : unlocked ? `<span class="lv-badge is-on">${escapeHtml(t("level.statusUnlocked"))}</span>` : `<span class="lv-badge is-off">${escapeHtml(t("level.statusLocked"))}</span>`;
+      const needTxt = `<bdi dir="ltr">${fmt(at)}</bdi>`;
+      const trCls = isCur ? ' class="is-you" aria-current="true"' : unlocked ? ' class="is-unlocked"' : '';
+      return `<tr${trCls}><td><bdi dir="ltr">${escapeHtml(C.levelName(i))}</bdi></td><td>${needTxt}</td><td>${escapeHtml(perm)}</td><td>${status}</td></tr>`;
+    }).join("");
+    body.innerHTML = `\n      ${hero}\n      <section class="glass lv-perms" style="margin-top:18px;padding:16px">\n        <h2 style="margin:0 0 4px">${escapeHtml(t("level.permissionsTitle"))}</h2>\n        <p class="muted" style="margin:0 0 12px">${escapeHtml(t("level.permissionsSub"))}</p>\n        <div style="overflow:auto"><table class="pt-table lv-table">\n          <thead><tr><th>${escapeHtml(t("level.colLevel"))}</th><th>${escapeHtml(t("level.colPoints"))}</th><th>${escapeHtml(t("level.colUnlocks"))}</th><th>${escapeHtml(t("level.colStatus"))}</th></tr></thead>\n          <tbody>${rows}</tbody>\n        </table></div>\n        <p class="muted" style="margin:10px 0 0">${escapeHtml(t("level.hint"))}</p>\n      </section>\n      <details class="pt-rules" style="margin-top:12px"><summary>${escapeHtml(t("points.levelsTitle"))}</summary>${C.levelHtml(mp)}</details>\n      <style>\n        .lv-hero{padding:14px}\n        .lv-perms .pt-table{width:100%;min-width:520px}\n        .lv-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid var(--border)}\n        .lv-badge.is-cur{background:var(--accent);color:#fff;border-color:var(--accent)}\n        .lv-badge.is-on{background:#1a7f37;color:#fff;border-color:#1a7f37}\n        .lv-badge.is-off{opacity:.7}\n        .pt-table tr.is-you{background:rgba(144,206,161,.12)}\n        .pt-table tr.is-unlocked{opacity:1}\n      </style>`;
+  }
+
   // ---------- Withdraw: points exchanged for real money (js/withdraw.js, sql/withdrawals.sql) ----------
   // LV3 and an account old enough for its membership (Free 12 months, Silver 6, Gold 3, Diamond 1);
   // a bank transfer or a money transfer agency such as Western Union.
@@ -3174,7 +3283,7 @@
           <textarea id="s-bio" placeholder="${t("common.bio")}">${escapeHtml(p.bio||"")}</textarea>
           <div class="form-row">
             <input id="s-region" value="${escapeHtml(p.region||"")}" placeholder="${t("common.region")}" />
-            <input id="s-country" value="${escapeHtml(p.country||m.country||"")}" placeholder="${t("common.country")}" />
+            <input id="s-country" value="${escapeHtml(m.country||p.country||"")}" placeholder="${t("common.country")}" readonly disabled title="${escapeHtml(t("set.countryLocked"))}" />
           </div>
           ${addressBoxHtml()}
         </div>
@@ -3195,6 +3304,27 @@
               <option value="nl">${t("lang.nl")}</option>
               <option value="it">${t("lang.it")}</option>
             </select>
+          </div>
+          <div class="set-site stack">
+            <span class="sset-lbl" id="s-style-lbl">${t("set.style")}</span>
+            <p class="sset-hint">${t("set.styleHint")}</p>
+            <select id="s-style">
+              <option value="default">✨ Default — CineAura glass</option>
+              <option value="facebook">f Facebook</option>
+              <option value="youtube">▶ YouTube</option>
+              <option value="instagram">◎ Instagram</option>
+              <option value="netflix">N Netflix</option>
+              <option value="prime">P Prime Video</option>
+              <option value="appletv"> Apple TV+</option>
+              <option value="win7">▭ Windows 7 Aero</option>
+              <option value="win8">⊞ Windows 8 Metro</option>
+              <option value="win10">▣ Windows 10 Fluent</option>
+              <option value="win11">⊞ Windows 11 Mica</option>
+              <option value="macos">● macOS Tahoe</option>
+              <option value="android">🤖 Android Material</option>
+              <option value="ios">◐ iOS</option>
+            </select>
+            <div id="s-style-grid" class="sset-themes-grid" role="radiogroup" aria-labelledby="s-style-lbl"></div>
           </div>
           <div class="set-site stack">
             <label class="sset-lbl" for="s-site-country">${t("set.country")}</label>
@@ -3241,8 +3371,36 @@
     });
     $("#s-theme").value = getTheme();
     $("#s-lang").value = getLang();
+    try{ const _sEl=$("#s-style"); if(_sEl){ _sEl.value = (C.getStyle?C.getStyle(): (window.CineauraTheme&&window.CineauraTheme.getStyle?window.CineauraTheme.getStyle(): "default")); _sEl.onchange=()=> saveAppearancePreference("style", _sEl.value); } }catch{}
     $("#s-theme").onchange = () => saveAppearancePreference("theme", $("#s-theme").value);
     $("#s-lang").onchange = () => saveAppearancePreference("language", $("#s-lang").value);
+    // Render visual theme grid inside dashboard appearance tab
+    try{
+      const grid=$("#s-style-grid");
+      if(grid){
+        const renderGrid = ()=>{
+          if(window.CineauraTheme && typeof window.CineauraTheme.renderPicker==="function"){
+            window.CineauraTheme.renderPicker(grid, (C.getStyle?C.getStyle():window.CineauraTheme.getStyle()));
+            grid.querySelectorAll("[data-style-pick]").forEach(btn=>{
+              btn.addEventListener("click", ()=>{
+                const v=btn.getAttribute("data-style-pick");
+                const sel=$("#s-style"); if(sel) sel.value=v;
+                saveAppearancePreference("style", v);
+                grid.querySelectorAll("[data-style-pick]").forEach(x=> x.classList.toggle("active", x.getAttribute("data-style-pick")===v));
+              });
+            });
+          } else {
+            // fallback simple sync: highlight active via select
+            const cur=(C.getStyle?C.getStyle():"default");
+            grid.querySelectorAll("[data-style-pick]").forEach(x=> x.classList.toggle("active", x.getAttribute("data-style-pick")===cur));
+          }
+        };
+        renderGrid();
+        // re-render when style changes elsewhere
+        document.addEventListener("cineaura:prefs", renderGrid);
+        document.addEventListener("cineaura:style", renderGrid);
+      }
+    }catch{}
     wireSiteSettings(main);
     $("#copy-rec").onclick = async () => {
       if (!m.recovery_code) return toast(t("dash.noRec"));
@@ -3256,7 +3414,7 @@
         theme: $("#s-theme").value,
         language: $("#s-lang").value,
         region: $("#s-region").value.trim(),
-        country: $("#s-country").value.trim(),
+        style: ($("#s-style")?.value || (C.getStyle?C.getStyle():"default")),
       };
       const profileSave = writeProfileSettings(body);
       const mem = { full_name: $("#s-name").value.trim(), email: $("#s-email").value.trim().toLowerCase() };
@@ -3281,7 +3439,7 @@
 
   // "points" (Earn points / Buy points / Earn prizes / Shop now, the sources and the spends) moved here from the profile;
   // "withdraw": points exchanged for money (js/withdraw.js, sql/withdrawals.sql)
-  const SECTIONS = ["overview","points","withdraw","playlists","links","reports","codes","iptv","views","analytics","prizes","history","settings"];
+  const SECTIONS = ["overview","level","points","withdraw","playlists","links","reports","codes","iptv","views","analytics","prizes","history","settings"];
   // dashboard.html#claims: Prizes > Prize claims (where the claim notifications lead)
   // dashboard.html#devices: Codes > Linked devices (named by the watch page)
   // dashboard.html#iptv-lists: IPTV > Your lists
@@ -3358,12 +3516,20 @@
     if (!force && Date.now() - menuCheckAt < 10000) return;
     menuCheckAt = Date.now();
     const visible = await computePanelVisible().catch(() => state.panelVisible);
-    if (visible === state.panelVisible) return;
+    if (visible === state.panelVisible) {
+      // still sync overview panel block visibility if overview is open
+      const ovPanelSync = document.querySelector("#ov-panel-block");
+      if (ovPanelSync) ovPanelSync.hidden = !visible;
+      return;
+    }
     state.panelVisible = visible;
     const nav = $("#dash-root .side-nav");
-    if (!nav) return;
-    nav.querySelector("[data-panel-link]")?.remove();
-    if (visible) nav.insertAdjacentHTML("beforeend", `<a href="./Panel.html" data-panel-link>${C.navIcon("panel")}<span>${t("nav.panel")}</span></a>`);
+    if (nav) {
+      nav.querySelector("[data-panel-link]")?.remove();
+      if (visible) nav.insertAdjacentHTML("beforeend", `<a href="./Panel.html" data-panel-link>${C.navIcon("panel")}<span>${t("nav.panel")}</span></a>`);
+    }
+    const ovPanel = document.querySelector("#ov-panel-block");
+    if (ovPanel) ovPanel.hidden = !visible;
   }
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") refreshMenus();

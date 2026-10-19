@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="css/browse.css" />
   <link rel="stylesheet" href="css/videos.css" />
   <link rel="stylesheet" href="css/home-hub.css" />
+  <link rel="stylesheet" href="css/home-updates.css" />
   <link rel="stylesheet" href="css/facebook.css" />
   <link rel="stylesheet" href="css/mobile.css" />
 </head>
@@ -101,7 +102,7 @@
       </div>
     </div>
 
-    <main>
+    <main class="page-main">
       <section class="hero" id="hero" aria-label="Trending slideshow">
         <!-- The bar of the team (Panel > Announcements, sql/panel_admin.sql): js/home-hub.js -->
         <div class="site-banner-slot" id="site-banner" hidden></div>
@@ -124,6 +125,24 @@
         <div><strong data-i18n="home.trust.cat">TMDB catalog</strong><span data-i18n="home.trust.catSub">Movies & series worldwide</span></div>
         <div><strong data-i18n="home.trust.plans">Flexible plans</strong><span data-i18n="home.trust.plansSub">From $0 to Diamond</span></div>
       </div>
+
+      <!-- LIVE UPDATES — unified feed of every novelty on CineAura -->
+      <section class="section" id="live-updates" aria-labelledby="live-updates-h">
+        <div class="container">
+          <div class="live-head">
+            <div class="live-title">
+              <div class="kicker"><span class="kicker-num" style="background:rgba(231,76,60,.18);color:#e74c3c;border-color:rgba(231,76,60,.3)">●</span><span class="eyebrow" data-i18n="home.live.kicker">Live now</span> <span class="live-live" aria-hidden="true"><i></i><span data-i18n="home.live.live">LIVE</span></span></div>
+              <h2 id="live-updates-h" data-i18n="home.live.h2">جميع التحديثات</h2>
+              <p class="lead" data-live-subtitle data-i18n="home.live.p" style="margin:0;color:var(--muted);font-size:13.5px">All updates in one place — Market, videos, IPTV, movies and offers.</p>
+            </div>
+            <div class="live-filters" id="live-filters" aria-label="Filter updates"></div>
+          </div>
+          <div class="live-grid" id="live-grid" aria-live="polite" aria-busy="true">
+            <div class="live-loading"><div class="spinner" style="margin:10px auto"></div><div data-i18n="home.live.loading">جاري تحميل التحديثات…</div></div>
+          </div>
+          <p class="live-more" style="text-align:center;margin-top:14px"><a class="btn btn-sm btn-ghost" href="./Market.html" data-i18n="home.live.openMarket">Open the Market</a> <a class="btn btn-sm btn-ghost" href="./Content.html" data-i18n="home.live.openVideos">Browse videos</a> <a class="btn btn-sm btn-ghost" href="./IPTV.html" data-i18n="home.live.openIptv">IPTV lists</a></p>
+        </div>
+      </section>
 
       <!-- What's new on CineAura: one card per feature of the last updates (js/home-hub.js adds the numbers) -->
       <section class="section hh-new" id="whats-new">
@@ -475,7 +494,10 @@
             </div>
             <div class="glass hh-ladder">
               <h3 data-i18n="hh.pts.levels">The levels</h3>
+              <p class="hh-ladder-intro" data-i18n="hh.pts.levelIntro">Each level unlocks new abilities — from publishing to market and auctions. Progress is cumulative: every level keeps all previous permissions.</p>
               <ol class="hh-ladder-list" id="hh-ladder"></ol>
+              <p class="hh-ladder-hint"><a href="./dashboard.html#level" data-i18n="hh.pts.levelLink">See what each level unlocks →</a> · <a href="./dashboard.html#points" data-i18n="hh.pts.how">How points work</a></p>
+              <p class="muted" style="font-size:11.5px;margin:2px 0 0" data-i18n="hh.pts.levelGateNote">LV0 watch · LV1 create & publish · LV2 challenge · LV3 lottery/prize · LV4 market buy · LV5 sell · LV6 auction buy · LV7 sell</p>
             </div>
           </div>
         </div>
@@ -732,6 +754,7 @@
   <script src="js/videos.js"></script>
   <script src="js/home-videos.js"></script>
   <script src="js/home-hub.js"></script>
+  <script src="js/home-updates.js"></script>
   <script src="js/prize-rules.js"></script>
   <script src="js/prize.js"></script>
 </body>

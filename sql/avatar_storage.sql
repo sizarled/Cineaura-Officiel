@@ -5,7 +5,7 @@
 -- Settings of their profile page and from the activation page. The browser crops
 -- it to a square JPEG (512 x 512 at most) and uploads it with the public key to
 --
---   bucket IPTV, folder Avatar, file <member id>.jpg      e.g. IPTV/Avatar/ID1234.jpg
+--   bucket source, folder Avatar, file <member id>.jpg      e.g. source/Avatar/ID1234.jpg
 --
 -- with x-upsert, so a new picture replaces the old one under the same name.
 -- profiles.avatar_url then holds its public link plus ?v=<time of the upload>, so
@@ -31,17 +31,17 @@ stable
 security definer
 set search_path = public
 as $$
-  select coalesce(p_bucket = 'IPTV', false)
+  select coalesce(p_bucket = 'source', false)
      and coalesce(p_name ~ '^Avatar/ID[0-9]{1,20}\.jpg$', false)
      and exists (
        select 1 from public.members m
         where m.member_id = substring(p_name from '^Avatar/(ID[0-9]{1,20})\.jpg$')
-          and coalesce(m.status, 'active') = 'active'
+          and coalesce(m.status, 'active') in ('active', 'disabled') -- 'disabled' = new member who has not activated yet (activate.html)
      )
 $$;
 
 comment on function public.avatar_object_ok(text, text) is
-  'Storage policies of the profile pictures: true for IPTV / Avatar/<member id>.jpg of an active member';
+  'Storage policies of the profile pictures: true for source / Avatar/<member id>.jpg of an active member';
 
 revoke all on function public.avatar_object_ok(text, text) from public;
 grant execute on function public.avatar_object_ok(text, text) to anon, authenticated, service_role;

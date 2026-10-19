@@ -517,11 +517,12 @@
   }
 
   // opts: { list (the member's own list, to edit it), onSaved(id, { created }) }
-  function openForm(opts = {}) {
+  async function openForm(opts = {}) {
     if (!memberId()) {
       location.href = `./login.html?next=${encodeURIComponent(`${location.pathname.replace(/^\//, "")}${location.search}${location.hash}`)}`;
       return;
     }
+    if (!(await C.guardLevel("publish_iptv"))) return;
     closeDialog();
     const editing = Boolean(opts.list?.id);
     const before = draftOf(opts.list);

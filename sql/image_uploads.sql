@@ -1,4 +1,4 @@
--- CineAura — pictures uploaded from the device (Supabase Storage, bucket IPTV)
+-- CineAura — pictures uploaded from the device (Supabase Storage, bucket source)
 -- Run this in the Supabase SQL editor (safe to run more than once), after prize_secure.sql.
 -- sql/market.sql uses it too, so run it before market.sql.
 --
@@ -6,12 +6,12 @@
 -- The browser makes the picture smaller (JPEG) and uploads it with the public key, named
 -- after the id of what it shows:
 --
---   prizes (Panel > Prizes)          IPTV/Prizes/Previews/<prize id>.jpg
+--   prizes (Panel > Prizes)          source/Prizes/Previews/<prize id>.jpg
 --                                    more than one picture: <prize id>-1.jpg, <prize id>-2.jpg …
---   prize groups (Panel > Prizes)    IPTV/Prizes/Grpoups/<group id>.jpg
---   products (Market.html)           IPTV/Market/Product/<product id>.jpg, <product id>-1.jpg …
---   store logos (Market.html)        IPTV/Market/Logo/<store id>.jpg
---   store covers (Market.html)       IPTV/Market/Cover/<store id>.jpg
+--   prize groups (Panel > Prizes)    source/Prizes/Grpoups/<group id>.jpg
+--   products (Market.html)           source/Market/Product/<product id>.jpg, <product id>-1.jpg …
+--   store logos (Market.html)        source/Market/Logo/<store id>.jpg
+--   store covers (Market.html)       source/Market/Cover/<store id>.jpg
 --
 -- (profile pictures keep their own policies: sql/avatar_storage.sql.)
 --
@@ -29,7 +29,7 @@
 -- ------------------------------------------------------------------ 1. tickets
 create table if not exists public.upload_tickets (
   path text primary key,                     -- name inside the bucket: Prizes/Previews/12.jpg
-  bucket text not null default 'IPTV',
+  bucket text not null default 'source',
   member_id text not null default '',        -- who asked (a member), or
   staff_id bigint,                           -- a staff member (Panel)
   expires_at timestamptz not null,
@@ -47,7 +47,7 @@ returns void language plpgsql security definer set search_path = public as $$
 begin
   delete from public.upload_tickets where expires_at < now() - interval '1 day';
   insert into public.upload_tickets (path, bucket, member_id, staff_id, expires_at)
-  values (p_path, 'IPTV', coalesce(p_member, ''), p_staff, now() + make_interval(mins => greatest(1, least(coalesce(p_minutes, 15), 60))))
+  values (p_path, 'source', coalesce(p_member, ''), p_staff, now() + make_interval(mins => greatest(1, least(coalesce(p_minutes, 15), 60))))
   on conflict (path) do update
     set member_id = excluded.member_id, staff_id = excluded.staff_id, expires_at = excluded.expires_at, created_at = now();
 end $$;
@@ -55,12 +55,12 @@ end $$;
 -- Storage policies: true while the file has a valid ticket.
 create or replace function public.upload_ticket_ok(p_bucket text, p_name text)
 returns boolean language sql stable security definer set search_path = public as $$
-  select coalesce(p_bucket = 'IPTV', false)
+  select coalesce(p_bucket = 'source', false)
      and exists (select 1 from public.upload_tickets t
                  where t.path = p_name and t.bucket = p_bucket and t.expires_at > now())
 $$;
 comment on function public.upload_ticket_ok(text, text) is
-  'Storage policies of the uploaded pictures: true while IPTV/<name> has a valid upload ticket (sql/image_uploads.sql)';
+  'Storage policies of the uploaded pictures: true while source/<name> has a valid upload ticket (sql/image_uploads.sql)';
 
 revoke all on function public._upload_ticket(text, text, bigint, int) from public, anon, authenticated;
 revoke all on function public.upload_ticket_ok(text, text) from public;

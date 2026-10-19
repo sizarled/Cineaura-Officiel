@@ -8,11 +8,29 @@
   const REFERRAL_TTL_MS = 30 * 24 * 60 * 60 * 1000;
   const LANG_KEY = "cineaura_lang";
   const THEME_KEY = "cineaura_theme";
+  const STYLE_KEY = "cineaura_style";
+  const STYLE_VALS = ["default","facebook","youtube","instagram","netflix","prime","appletv","win7","win8","win10","win11","macos","android","ios"];
+  const STYLE_META = {
+    default:{ label:"Default", sub:"Glass", icon:"✨", bar:"#01b4e4", body:"#0d253f" },
+    facebook:{ label:"Facebook", sub:"Social", icon:"f", bar:"#1877f2", body:"#f0f2f5" },
+    youtube:{ label:"YouTube", sub:"Tube", icon:"▶", bar:"#ff0000", body:"#0f0f0f" },
+    instagram:{ label:"Instagram", sub:"Gradient", icon:"◎", bar:"#d62976", body:"#000" },
+    netflix:{ label:"Netflix", sub:"Cinema", icon:"N", bar:"#e50914", body:"#000" },
+    prime:{ label:"Prime Video", sub:"Prime", icon:"P", bar:"#00a8e1", body:"#0a1628" },
+    appletv:{ label:"Apple TV+", sub:"tvOS", icon:"", bar:"#000", body:"#1c1c1e" },
+    win7:{ label:"Windows 7", sub:"Aero", icon:"▭", bar:"#2a7bd8", body:"#a9d0f0" },
+    win8:{ label:"Windows 8", sub:"Metro", icon:"⊞", bar:"#0078d7", body:"#0078d7" },
+    win10:{ label:"Windows 10", sub:"Fluent", icon:"▣", bar:"#0078d4", body:"#f3f3f3" },
+    win11:{ label:"Windows 11", sub:"Mica", icon:"⊞", bar:"#0067c0", body:"#f3f3f3" },
+    macos:{ label:"macOS", sub:"Tahoe", icon:"●", bar:"#007aff", body:"#ececef" },
+    android:{ label:"Android", sub:"Material", icon:"🤖", bar:"#3ddc84", body:"#141218" },
+    ios:{ label:"iOS", sub:"iPhone", icon:"◐", bar:"#007aff", body:"#f2f2f7" },
+  };
   const LANGS = window.CineAuraLangs || ["en", "ar", "fr", "de", "es", "nl", "it"];
   const TMDB_LANG = { en: "en-US", ar: "ar-SA", fr: "fr-FR", de: "de-DE", es: "es-ES", nl: "nl-NL", it: "it-IT" };
   const LOCALE = { en: "en-US", ar: "ar", fr: "fr-FR", de: "de-DE", es: "es-ES", nl: "nl-NL", it: "it-IT" };
-  const SUPABASE_URL = "https://mxdsgnlmfpaekgmswjou.supabase.co";
-  const SUPABASE_KEY = "sb_publishable_FZmzR3yk_CR5j9jH191AVQ_NQivMZ-Q";
+  const SUPABASE_URL = "https://samazxadqggoeilaqfdp.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_UZ74c-sHOywW9lOfErwXuA_GtMtvYYY";
 
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -139,6 +157,7 @@
 
   let activeLang = null;
   let activeTheme = null;
+  let activeStyle = null;
   // Ignore an older profile-preference request if a newer setting was applied
   // while that request was still in flight (for example, during dashboard boot).
   let prefsRevision = 0;
@@ -155,6 +174,13 @@
     const stored = localStorage.getItem(THEME_KEY);
     return stored === "day" ? "day" : "night";
   }
+
+  function getStyle(){
+    if(activeStyle && STYLE_VALS.includes(activeStyle)) return activeStyle;
+    try{ const s=localStorage.getItem(STYLE_KEY); if(STYLE_VALS.includes(s)) return s; }catch{}
+    return "default";
+  }
+  function getStyles(){ return STYLE_VALS.slice(); }
 
   function getLocale() {
     return LOCALE[getLang()] || "en-US";
@@ -216,7 +242,7 @@
     if (titleEl) document.title = t(titleEl.getAttribute("data-i18n-title"));
   }
 
-  function applyPrefs({ language, theme, persist = true } = {}) {
+  function applyPrefs({ language, theme, style, persist = true } = {}) {
     let changed = false;
     if (language && LANGS.includes(language)) {
       activeLang = language;
@@ -228,11 +254,18 @@
       if (persist) localStorage.setItem(THEME_KEY, theme);
       changed = true;
     }
+    if (style && STYLE_VALS.includes(style)) {
+      activeStyle = style;
+      if (persist) try{ localStorage.setItem(STYLE_KEY, style); }catch{}
+      changed = true;
+    }
     if (changed) prefsRevision++;
     const lang = getLang();
     const mode = getTheme();
+    const st = getStyle();
     const html = document.documentElement;
     html.dataset.theme = mode;
+    html.dataset.style = st;
     html.lang = lang;
     html.dir = lang === "ar" ? "rtl" : "ltr";
     document.body?.classList.toggle("is-rtl", lang === "ar");
@@ -242,7 +275,7 @@
     window.CineAuraLang?.load?.(lang);
     translateDom(document);
     wireSessionNav();
-    document.dispatchEvent(new CustomEvent("cineaura:prefs", { detail: { language: lang, theme: mode } }));
+    document.dispatchEvent(new CustomEvent("cineaura:prefs", { detail: { language: lang, theme: mode, style: st } }));
   }
 
   let accountLangApplied = false; // the member's saved language beats the IP-based one
@@ -252,7 +285,7 @@
     const revisionAtStart = prefsRevision;
     try {
       const res = await supabaseRequest(
-        `/rest/v1/profiles?member_id=eq.${restValue(s.member_id)}&select=language,theme`
+        `/rest/v1/profiles?member_id=eq.${restValue(s.member_id)}&select=language,theme,style`
       );
       // Don't let a delayed profile response undo a more recent selection made
       // on this page. Also guard against the account changing while it loads.
@@ -261,11 +294,17 @@
       if (!res.ok || !p) return;
       const language = LANGS.includes(p.language) ? p.language : null;
       const theme = p.theme === "day" || p.theme === "night" ? p.theme : null;
+      const style = STYLE_VALS.includes(p.style) ? p.style : null;
       // A language picked on this device wins; "en" is the default of a fresh profile,
       // so it is not treated as a choice and the browser language keeps applying.
       const manual = LANGS.includes(localStorage.getItem(LANG_KEY));
       const accountLang = language && !manual && language !== "en" ? language : null;
       if (theme) applyPrefs({ theme, persist: true });
+      if (style) {
+        const manualStyle = STYLE_VALS.includes(localStorage.getItem(STYLE_KEY));
+        if(!manualStyle || style==="default") applyPrefs({ style, persist: true });
+        else if(manualStyle && getStyle()==="default" && style!=="default") applyPrefs({ style, persist: true });
+      }
       if (accountLang) {
         accountLangApplied = true;
         applyPrefs({ language: accountLang, persist: false });
@@ -331,7 +370,8 @@
     note.classList.remove("flash");
     void note.offsetWidth; // restart the highlight
     note.classList.add("flash");
-    note.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    // Auto-scroll disabled per user request
+    void note.offsetWidth;
     setTimeout(() => note.classList.remove("flash"), 1400);
   }
 
@@ -698,11 +738,11 @@
   }
 
   // ---------- Profile picture: an uploaded photo or an image link ----------
-  // Uploads go to Supabase Storage, bucket IPTV, folder Avatar, named after the
+  // Uploads go to Supabase Storage, bucket source, folder Avatar, named after the
   // member id (Avatar/ID123.jpg) and sent with x-upsert: a new photo replaces the
   // old one under the same name. sql/avatar_storage.sql holds the Storage policies
   // that let the public key write exactly that file and nothing else.
-  const AVATAR_BUCKET = "IPTV";
+  const AVATAR_BUCKET = "source";
   const AVATAR_FOLDER = "Avatar";
   const AVATAR_PX = 512; // the stored photo is a square of at most 512 x 512
   const AVATAR_MAX_BYTES = 10 * 1024 * 1024; // the file picked, before it is made smaller
@@ -928,11 +968,11 @@
   // it, what it shows may not exist yet (a new prize, a new product), so a picked picture waits
   // in the field (made smaller, as a JPEG) and goes up only once the page has saved and knows
   // the id: uploadPictures() names it after that id — <id>.jpg, and when there are several
-  // pictures <id>-1.jpg, <id>-2.jpg … — in the folder of the bucket IPTV the page gives
+  // pictures <id>-1.jpg, <id>-2.jpg … — in the folder of the bucket source the page gives
   // (Prizes/Previews, Prizes/Grpoups, Market/Product, Market/Logo, Market/Cover). Storage takes
   // the files only with an upload ticket the server writes for those exact names
   // (sql/image_uploads.sql), and x-upsert replaces an older picture of the same name.
-  const PICTURE_BUCKET = "IPTV";
+  const PICTURE_BUCKET = "source";
   const PICTURE_MAX_BYTES = 15 * 1024 * 1024; // the file picked, before it is made smaller
   const PICTURE_ERRORS = {
     type: "pic.errType",
@@ -1694,8 +1734,8 @@
      replaced with the username and password of a premium IPTV account: typed on
      the page, or found with a watch code (sql/iptv_premium.sql). */
   const IPTV_LISTS = {
-    free: { key: "free", name: "IPTV-Free", url: "https://mxdsgnlmfpaekgmswjou.supabase.co/storage/v1/object/public/IPTV/IPTV-Free.m3u" },
-    premium: { key: "premium", name: "IPTV-Premium", url: "https://mxdsgnlmfpaekgmswjou.supabase.co/storage/v1/object/public/IPTV/IPTV-Premuim.m3u" },
+    free: { key: "free", name: "IPTV-Free", url: "https://samazxadqggoeilaqfdp.supabase.co/storage/v1/object/public/IPTV/IPTV-Free.m3u" },
+    premium: { key: "premium", name: "IPTV-Premium", url: "https://samazxadqggoeilaqfdp.supabase.co/storage/v1/object/public/IPTV/IPTV-Premuim.m3u" },
   };
 
   const SLOT_USER = /^username$/i;
@@ -2650,6 +2690,15 @@
               <button type="button" role="radio" data-theme-pick="day" data-i18n="set.light">Light</button>
             </div>
           </div>
+          <div class="sset-row sset-themes">
+            <span class="sset-lbl" id="sset-style-lbl" data-i18n="set.style">Theme style</span>
+            <p class="sset-hint" data-i18n="set.styleHint">14 looks — Default glass plus your favourite apps and systems. Dark/Light shades each one.</p>
+            <div id="sset-themes-grid" class="sset-themes-grid" role="radiogroup" aria-labelledby="sset-style-lbl"></div>
+          </div>
+          <div class="sset-row" style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-sm btn-primary" id="sset-customize" type="button">🎨 تخصيص الموقع</button>
+            <button class="btn btn-sm btn-ghost" id="sset-reset-layout" type="button">↺ العودة للوضع الافتراضي</button>
+          </div>
           <div class="sset-row sset-adfree">
             <div class="sset-switch-line">
               <div class="sset-switch-text">
@@ -2712,6 +2761,50 @@
       }
     }
 
+    function renderStyleGrid(){
+      const grid = overlay.querySelector("#sset-themes-grid");
+      if(!grid) return;
+      const cur = getStyle();
+      // prefer helper from themes.js if loaded (keeps single source of truth)
+      if(window.CineauraTheme && typeof window.CineauraTheme.renderPicker === "function"){
+        window.CineauraTheme.renderPicker(grid, cur);
+        // also wire patchProfile on its cards
+        grid.querySelectorAll("[data-style-pick]").forEach(btn=>{
+          btn.addEventListener("click", ()=>{
+            const v = btn.getAttribute("data-style-pick");
+            applyPrefs({ style:v, persist:true });
+            patchProfile({ style:v });
+            // update aria
+            grid.querySelectorAll("[data-style-pick]").forEach(x=> x.setAttribute("aria-checked", String(x.getAttribute("data-style-pick")===v)));
+          });
+        });
+        return;
+      }
+      grid.innerHTML="";
+      STYLE_VALS.forEach(id=>{
+        const meta = STYLE_META[id] || { label:id, sub:"", icon:"•", bar:"#777", body:"#444" };
+        const btn=document.createElement("button");
+        btn.type="button";
+        btn.setAttribute("role","radio");
+        btn.setAttribute("data-style-pick", id);
+        btn.setAttribute("aria-checked", String(id===cur));
+        btn.className="sset-theme-card"+(id===cur?" active":"");
+        const isDarkIcon = ["#fff","#ffffff","#f0f2f5","#f3f3f3","#ececef","#fffbfe","#f2f2f7","#fafafa","#ffffff"].includes(meta.body.toLowerCase());
+        const fg = isDarkIcon ? "#222" : "#fff";
+        btn.innerHTML=`<div class="sset-theme-prev" style="background:${meta.body}"><div class="sset-theme-prev__bar" style="background:${meta.bar}"><span class="sset-theme-prev__dot" style="background:rgba(255,255,255,.95)"></span><span class="sset-theme-prev__dot" style="background:rgba(255,255,255,.75)"></span><span class="sset-theme-prev__dot" style="background:rgba(255,255,255,.55)"></span></div><div class="sset-theme-prev__body" style="color:${fg}">${meta.icon}</div></div><div class="sset-theme-name">${escapeHtml(meta.label)}</div><div class="sset-theme-sub">${escapeHtml(meta.sub)}</div>`;
+        btn.addEventListener("click", ()=>{
+          applyPrefs({ style:id, persist:true });
+          patchProfile({ style:id });
+          grid.querySelectorAll("[data-style-pick]").forEach(x=>{
+            const is=x.getAttribute("data-style-pick")===id;
+            x.classList.toggle("active", is);
+            x.setAttribute("aria-checked", String(is));
+          });
+        });
+        grid.appendChild(btn);
+      });
+    }
+
     function syncAll() {
       langSel.value = getLang();
       fillCountries();
@@ -2719,6 +2812,7 @@
       overlay.querySelectorAll("[data-theme-pick]").forEach((b) => {
         b.setAttribute("aria-checked", String(b.dataset.themePick === getTheme()));
       });
+      renderStyleGrid();
       translateDom(overlay);
       syncAdFree();
     }
@@ -2827,6 +2921,20 @@
         patchProfile({ theme: b.dataset.themePick });
       })
     );
+
+    // Customize / Reset layout buttons
+    overlay.querySelector("#sset-customize")?.addEventListener("click", ()=>{
+      close();
+      if(window.CineAuraCustomizer) window.CineAuraCustomizer.open();
+      else {
+        // fallback if customizer not loaded yet — load it
+        const s=document.createElement("script"); s.src="js/customizer.js"; s.onload=()=> window.CineAuraCustomizer.open(); document.head.appendChild(s);
+      }
+    });
+    overlay.querySelector("#sset-reset-layout")?.addEventListener("click", ()=>{
+      if(window.CineAuraLayouts){ const c=window.CineAuraLayouts.resetToDefault(); window.CineAuraLayouts.applyAll(c); toast(t("set.resetDone")||"تمت العودة للافتراضي"); }
+      else { try{ localStorage.removeItem("cineaura_layout"); }catch{} toast(t("set.resetDone")||"تمت العودة للافتراضي"); location.reload(); }
+    });
 
     adBox.addEventListener("change", async () => {
       const on = adBox.checked;
@@ -3717,6 +3825,7 @@
     prizes: '<rect x="3.5" y="8" width="17" height="4.5" rx="1"/><path d="M5 12.5V20.5h14v-8M12 8v12.5"/><path d="M12 8C10.5 4.5 6.5 4 6.5 6.3S9.5 8 12 8zM12 8c1.5-3.5 5.5-4 5.5-1.7S14.5 8 12 8z"/>',
     history: '<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3.5 8.5"/><path d="M3.5 3.5v5h5"/><path d="M12 7.5V12l3 2"/>',
     settings: '<path d="M4 6.5h9M17 6.5h3M4 12h3M11 12h9M4 17.5h11M19 17.5h1"/><circle cx="15" cy="6.5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17.5" r="2"/>',
+    help: '<path d="M12 3.5a8.5 8.5 0 1 0 0 17a8.5 8.5 0 0 0 0-17z"/><path d="M9.5 9.5a2.5 2.5 0 0 1 5 0c0 1.8-2 2.2-2 3.6"/><circle cx="12" cy="17" r="1.2"/>',
     panel: '<path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.2-7.5 9.5-4.3-1.3-7.5-4.9-7.5-9.5V6z"/><path d="M9 12l2.2 2.2L15.5 10"/>',
     home: '<path d="M3.5 11L12 4l8.5 7"/><path d="M5.5 9.5v11h4.5v-6h4v6h4.5v-11"/>',
     create: '<rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><path d="M12 8v8M8 12h8"/>',
@@ -3739,6 +3848,7 @@
   NAV_ICONS.packages = '<path d="M3.5 7.5L12 3.2l8.5 4.3v9L12 20.8l-8.5-4.3z"/><path d="M3.5 7.5L12 11.8l8.5-4.3M12 11.8v9M7.8 5.3l8.4 4.3"/>';
   // Dashboard > Withdraw and Panel > Withdrawals (sql/withdrawals.sql): a banknote going out
   NAV_ICONS.withdraw = '<rect x="2.5" y="4.5" width="19" height="11" rx="2"/><circle cx="12" cy="10" r="2.4"/><path d="M6 7.5v5M18 7.5v5M12 17.5v4M9.6 19.4L12 21.8l2.4-2.4"/>';
+  NAV_ICONS.level = '<path d="M12 3l3 4h4l-3 3 1 4-5-3-5 3 1-4-3-3h4z"/><path d="M12 14v5"/>';
   NAV_ICONS.withdrawals = NAV_ICONS.withdraw;
 
   function navIcon(name) {
@@ -3887,6 +3997,154 @@
       next: to == null ? null : { level: level + 1, name: levelName(level + 1), at: to, multiplier: levelMultiplier(level + 1) },
       progress: to == null ? 1 : Math.min(1, Math.max(0, (have - from) / (to - from))),
     };
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     LV-gated permissions — 2026-10-19 spec (cumulative, client-side guard;
+     server must enforce the same POINT_LEVELS thresholds via RLS / RPC):
+
+       LV0 (0 PT)  watch only: videos / channels / films / series
+       LV1 (10 PT) + create content + publish IPTV lists + publish watch/download links
+       LV2 (100 PT) + join challenge-mode prizes
+       LV3 (1K PT) + join prize/lottery-mode prizes (includes gift)
+       LV4 (10K PT) + buy in market
+       LV5 (100K PT) + sell in market (open store + publish products)
+       LV6 (1M PT) + auction buy
+       LV7 (10M PT) + auction sell
+     Each LV includes all previous. POINT_LEVELS defines the thresholds; see
+     levelInfo()/pointLevel(). Do not trust client alone — Supabase policies /
+     sql/market.sql, sql/prize*.sql, sql/content.sql should repeat the check.
+     ════════════════════════════════════════════════════════════════════ */
+  // Human name for each LV's new permission (cumulative). Index = LV.
+  const LEVEL_PERMS = [
+    "level.perm.0",
+    "level.perm.1",
+    "level.perm.2",
+    "level.perm.3",
+    "level.perm.4",
+    "level.perm.5",
+    "level.perm.6",
+    "level.perm.7",
+    "level.perm.max",
+    "level.perm.max",
+    "level.perm.max",
+  ];
+  const FEATURE_MIN_LEVEL = {
+    // LV0 — everyone
+    watch: 0, view: 0,
+    // LV1 — creator / publisher
+    create_content: 1, createContent: 1, posts: 1, content: 1,
+    publish_iptv: 1, publishIptv: 1, iptv: 1,
+    publish_links: 1, publishLinks: 1, links: 1,
+    // LV2 — challenge prizes
+    challenge: 2, join_challenge: 2,
+    // LV3 — lottery / prize mode
+    lottery: 3, join_lottery: 3, prize: 3, gift: 3, join_prize: 3, withdraw: 3,
+    // LV4 — market buy
+    buy: 4, buy_market: 4, purchase: 4, market_buy: 4,
+    // LV5 — market sell
+    sell: 5, sell_market: 5, store_open: 5, market_sell: 5,
+    // LV6 / LV7 — auction
+    auction: 6, auction_buy: 6, auction_purchase: 6,
+    auction_sell: 7, auction_sale: 7,
+  };
+  function featureMinLevel(feature) {
+    const k = String(feature || "").trim().toLowerCase().replace(/-/g, "_");
+    if (k in FEATURE_MIN_LEVEL) return FEATURE_MIN_LEVEL[k];
+    return 0;
+  }
+  function canFeature(feature, earnedOrLevel) {
+    const need = featureMinLevel(feature);
+    if (need <= 0) return true;
+    if (earnedOrLevel == null) return true; // offline / unknown — let server decide
+    const v = Number(earnedOrLevel);
+    if (Number.isFinite(v) && v <= LEVEL_MAX && Number.isInteger(v) && v >= 0 && v < 1000) {
+      // looks like a level number, not earned points
+      // disambiguate: earned points >= 1000 could also be level-like; prefer points check when v >= 100
+      // but if caller passed level, level <=10; treat <20 as level
+      if (v <= 10) return v >= need;
+    }
+    return pointLevel(v) >= need;
+  }
+  function featureNeedPoints(feature) {
+    return POINT_LEVELS[featureMinLevel(feature)] ?? 0;
+  }
+  function levelGateMessage(feature, haveEarned) {
+    const needLv = featureMinLevel(feature);
+    const needPts = POINT_LEVELS[needLv] ?? 0;
+    const have = levelInfo(haveEarned);
+    const needName = levelName(needLv);
+    const norm = String(feature || "").trim().toLowerCase().replace(/-/g, "_");
+    const keyByFeature = {
+      challenge: "level.err.challenge",
+      join_challenge: "level.err.challenge",
+      lottery: "level.err.lottery",
+      join_lottery: "level.err.lottery",
+      gift: "level.err.lottery",
+      prize: "level.err.lottery",
+      join_prize: "level.err.lottery",
+      buy: "level.err.buy",
+      buy_market: "level.err.buy",
+      market_buy: "level.err.buy",
+      purchase: "level.err.buy",
+      sell: "level.err.sell",
+      sell_market: "level.err.sell",
+      market_sell: "level.err.sell",
+      store_open: "level.err.sell",
+      auction_buy: "level.err.auctionBuy",
+      auction_purchase: "level.err.auctionBuy",
+      auction_sell: "level.err.auctionSell",
+      auction_sale: "level.err.auctionSell",
+      create_content: "level.err.createContent",
+      createcontent: "level.err.createContent",
+      posts: "level.err.createContent",
+      publish_links: "level.err.publishLinks",
+      publishlinks: "level.err.publishLinks",
+      links: "level.err.publishLinks",
+      publish_iptv: "level.err.publishIptv",
+      publishiptv: "level.err.publishIptv",
+      iptv: "level.err.publishIptv",
+    };
+    const key = keyByFeature[norm] || "level.err.generic";
+    // compact formatting for points
+    const fmt = (n) => {
+      try { return Number(n).toLocaleString(getLocale()); } catch { return String(n); }
+    };
+    return t(key, {
+      need: needName,
+      have: have.name,
+      needPoints: fmt(needPts),
+      havePoints: fmt(have.earned),
+      needPts: fmt(needPts),
+      havePts: fmt(have.earned),
+      level: needName,
+      haveLevel: have.name,
+      points: fmt(Math.max(0, needPts - have.earned)),
+      needLevel: needName,
+      haveEarned: fmt(have.earned),
+    });
+  }
+  async function guardLevel(feature) {
+    const min = featureMinLevel(feature);
+    if (min <= 0) return true;
+    const sess = getSession();
+    if (!sess?.member_id) return true; // auth gate handles sign-in
+    try {
+      const mp = await memberPoints(sess.member_id);
+      const have = Number(mp?.earned || 0);
+      if (pointLevel(have) >= min) return true;
+      toast(levelGateMessage(feature, have));
+      return false;
+    } catch {
+      // offline: don't block
+      return true;
+    }
+  }
+  // Sanctions + level in one call (sanctions first, so banned message wins)
+  async function guardAccess(feature) {
+    if (!(await guardFeature(feature))) return false;
+    if (!(await guardLevel(feature))) return false;
+    return true;
   }
 
   // Total number of rows of a query, read from the content-range header so the
@@ -4659,6 +4917,8 @@
     langText,
     getLang,
     getTheme,
+    getStyle,
+    getStyles,
     getLocale,
     applyPrefs,
     translateDom,
@@ -4847,6 +5107,14 @@
     pointsEarned,
     WATCH_TIERS,
     POINT_LEVELS,
+    LEVEL_PERMS,
+    FEATURE_MIN_LEVEL,
+    featureMinLevel,
+    canFeature,
+    featureNeedPoints,
+    levelGateMessage,
+    guardLevel,
+    guardAccess,
     watchTier,
     pointLevel,
     levelMultiplier,

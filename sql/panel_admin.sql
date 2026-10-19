@@ -490,7 +490,8 @@ begin
   if s.role <> 'super' then raise exception 'staff_forbidden'; end if;
   update public.panel_settings
      set show_admin = coalesce(p_show_admin, true), show_moderator = coalesce(p_show_moderator, true),
-         show_member = coalesce(p_show_member, false);
+         show_member = coalesce(p_show_member, false)
+   where true; -- Supabase's API role refuses an UPDATE without WHERE (pg-safeupdate)
   if not found then
     begin
       insert into public.panel_settings (id, show_admin, show_moderator, show_member)

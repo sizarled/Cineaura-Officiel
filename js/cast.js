@@ -186,6 +186,7 @@
   async function recommendPerson(title, body) {
     const session = getSession();
     if (!(await window.CineAura.guardFeature("posts"))) return false;
+    if (!(await window.CineAura.guardLevel("create_content"))) return false;
     const info = await window.CineAuraRich.details("person", Number(personId));
     const postId = newPostId();
     const saved = await supabaseRequest("/rest/v1/posts", {

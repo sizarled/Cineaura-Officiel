@@ -21,6 +21,14 @@
 --     LV0 0+ (new account) x1   LV1 10+ x1    LV2 100+ x2   LV3 1K+ x3
 --     LV4 10K+ x4               LV5 100K+ x5  LV6 1M+ x6    LV7 10M+ x7
 --     LV8 100M+ x8              LV9 1B+ x9    LV Max 10B+ x10
+--   LV-gated permissions (2026-10-19, cumulative — client js/common.js FEATURE_MIN_LEVEL
+--   and server must enforce via points_level()):
+--     LV0 watch only (videos/channels/films/series)
+--     LV1 + create content + publish IPTV lists + publish watch/download links
+--     LV2 + challenge-mode prizes
+--     LV3 + prize/lottery-mode prizes
+--     LV4 + buy in market          LV5 + sell in market
+--     LV6 + auction buy            LV7 + auction sell
 --
 --   Example: Morocco is in tier 4; at LV2 a minute is worth 2 / 50 = 0.04
 --   point, so 50 minutes give 2 points. In the US at LV2: 2 points a minute.

@@ -630,6 +630,7 @@
       publishAt = new Date(Date.now() + WHEN_MS[d.when]).toISOString();
     }
     if (!(await C.guardFeature("posts"))) return;
+    if (!(await C.guardLevel("create_content"))) return;
     const btn = pane.querySelector("#vc-go");
     btn.disabled = true;
     btn.textContent = t("vid.publishing");
@@ -805,7 +806,6 @@
     toggle.setAttribute("aria-expanded", "false");
     document.removeEventListener("click", onOutside, true);
     document.removeEventListener("keydown", onMenuKey, true);
-    window.removeEventListener("scroll", closeMenu, true);
     window.removeEventListener("resize", closeMenu);
   }
   function onOutside(e) {
@@ -861,7 +861,7 @@
     });
     document.addEventListener("click", onOutside, true);
     document.addEventListener("keydown", onMenuKey, true);
-    window.addEventListener("scroll", closeMenu, true);
+    // scroll-close removed: layout restore caused bounce that closed menu without selection (user report)
     window.addEventListener("resize", closeMenu);
     menu.querySelector("button")?.focus();
   }

@@ -178,13 +178,22 @@
     const ol = document.getElementById("hh-ladder");
     if (!ol || !Array.isArray(C.POINT_LEVELS)) return;
     const compact = C.compactPoints || ((n) => String(n));
-    ol.innerHTML = C.POINT_LEVELS.map((at, i) => `
-      <li class="${i === level ? "is-you" : ""}"${i === level ? ' aria-current="true"' : ""}>
-        <b dir="ltr">${esc(C.levelName(i))}</b>
-        <span dir="ltr">${esc(compact(at))}+</span>
-        <i dir="ltr">×${esc(C.levelMultiplier(i))}</i>
-        ${i === level ? `<em>${esc(t("points.you"))}</em>` : ""}
-      </li>`).join("");
+    const perms = Array.isArray(C.LEVEL_PERMS) ? C.LEVEL_PERMS : [];
+    ol.innerHTML = C.POINT_LEVELS.map((at, i) => {
+      const permKey = perms[i] || "";
+      const perm = permKey ? t(permKey) : "";
+      const isYou = i === level;
+      return `
+      <li class="${isYou ? "is-you" : ""}"${isYou ? ' aria-current="true"' : ""} title="${perm ? esc(perm) : ""}">
+        <span class="hh-ladder-main">
+          <b dir="ltr">${esc(C.levelName(i))}</b>
+          <span dir="ltr">${esc(compact(at))}+</span>
+          <i dir="ltr">×${esc(C.levelMultiplier(i))}</i>
+        </span>
+        ${perm ? `<small class="hh-lv-perm" dir="auto">${esc(perm)}</small>` : ""}
+        ${isYou ? `<em>${esc(t("points.you"))}</em>` : ""}
+      </li>`;
+    }).join("");
   }
 
   async function points() {
@@ -216,7 +225,7 @@
       </div>
       <div class="hh-me-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>
       <p class="hh-me-next">${esc(lv.next ? t("hh.pts.toNext", { n: num(Math.max(0, lv.next.at - lv.earned)), level: lv.next.name }) : t("points.levelTop"))}</p>
-      <a class="btn btn-lg btn-primary" href="./dashboard.html#points">${esc(t("hh.pts.open"))}</a>`;
+      <div class="hh-me-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px"><a class="btn btn-lg btn-primary" href="./dashboard.html#points">${esc(t("hh.pts.open"))}</a><a class="btn btn-sm btn-ghost" href="./dashboard.html#level">${esc(t("hh.pts.levelLink"))}</a></div>`;
     setStat("points", t("hh.stat.level", { level: lv.name }));
     ladder(lv.level);
   }

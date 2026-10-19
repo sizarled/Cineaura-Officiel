@@ -631,6 +631,7 @@
     if (!me) return toast(t("vid.signToVote"));
     if (state.data.access !== "ok") return toast(t("vid.lockedAction"));
     if (!(await C.guardFeature("posts"))) return;
+    if (!(await C.guardLevel("create_content"))) return;
     const next = Number(state.data.my_vote || 0) === v ? 0 : v;
     btn.disabled = true;
     const res = await V.call("content_vote", { p_member: me, p_id: state.id, p_vote: next, p_country: await V.geoCountry() });
@@ -707,6 +708,7 @@
       const text = form.elements.body.value.trim();
       if (!text) return form.elements.body.focus();
       if (!(await C.guardFeature("comments"))) return;
+      if (!(await C.guardLevel("create_content"))) return;
       const btn = form.querySelector('button[type="submit"]');
       btn.disabled = true;
       const res = await V.call("content_comment_add", {
