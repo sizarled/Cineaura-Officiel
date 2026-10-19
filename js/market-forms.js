@@ -573,7 +573,8 @@
   }
 
   // Add (no product) or change a product. store: the member's store (shipping on/off), or null.
-  M.openProductForm = ({ product = null, store = null, onSaved = null } = {}) => {
+  M.openProductForm = async ({ product = null, store = null, onSaved = null } = {}) => {
+    if (!(await C.guardLevel("sell"))) return;
     const p = product || {};
     const editing = Boolean(p.id);
     let cats = (Array.isArray(p.categories) ? p.categories : []).map((c) => (typeof c === "string" ? c : c?.name)).filter(Boolean).slice(0, MAX_CATS);
@@ -753,6 +754,7 @@
         return;
       }
       const btn = form.querySelector("[data-save]");
+      if (!(await C.guardLevel("sell"))) return;
       btn.disabled = true;
       const r = await M.call("market_product_save", { p_member: M.memberId(), d });
       if (!r.ok || !r.data?.ok) {
@@ -1040,7 +1042,8 @@
   // Buy now: pieces, a note, the city for a store of one city, the total and the points. A
   // physical product shows where it goes (the address saved in the profile) or that the address
   // comes after; a digital one when its download link comes.
-  M.openCheckout = ({ product, store, ref = "", onDone = null, onAddress = null }) => {
+  M.openCheckout = async ({ product, store, ref = "", onDone = null, onAddress = null }) => {
+    if (!(await C.guardLevel("buy"))) return;
     const p = product;
     const s = store || {};
     const physical = p.kind !== "digital";
@@ -1193,6 +1196,7 @@
         return;
       }
       const btn = form.querySelector("[data-co-buy]");
+      if (!(await C.guardLevel("buy"))) return;
       btn.disabled = true;
       const args = { p_member: M.memberId(), p_product: p.id, p_qty: q, p_address: addr, p_ref: ref || "" };
       if (coupon) args.p_coupon = coupon.code;
@@ -1849,6 +1853,15 @@
 
   // ---------------------------------------------------------------- requests
   // A question about a product, or "can you get this item?" to a store.
+  // Auction (LV6 buy, LV7 sell) — stubs until sql/market_auction.sql lands; level guard remains.
+  M.openAuctionBuy = async ({ product, store, onDone = null } = {}) => {
+    if (!(await C.guardLevel("auction_buy"))) return;
+    C.toast(t("mkt.auction.comingSoonBuy"));
+  };
+  M.openAuctionSell = async ({ product, store, onDone = null } = {}) => {
+    if (!(await C.guardLevel("auction_sell"))) return;
+    C.toast(t("mkt.auction.comingSoonSell"));
+  };
   M.openRequest = ({ store, product = null, kind = "question", onSent = null }) => {
     const wrap = M.modal(`
       ${head(t(kind === "question" ? "mkt.rq.askTitle" : "mkt.rq.itemTitle"))}

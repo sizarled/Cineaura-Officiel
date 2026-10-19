@@ -1480,15 +1480,15 @@
     }
   }
 
-  // (round 30) a member below LV1 cannot open a store yet: how far they are, and how to earn points
+  // LV5 (100K PT) to open a store — see js/common.js FEATURE_MIN_LEVEL
   function levelLockHtml(me) {
     const lv = me?.store_level || {};
-    const need = Number(lv.need_points) || 10;
+    const need = Number(lv.need_points) || 100000;
     const have = Math.min(need, Number(lv.earned) || 0);
     const pct = Math.round((have / need) * 100);
     return `
       <div class="mkt-lv-lock" data-store-lock>
-        <span class="mkt-lv-badge" dir="ltr">LV${Number(lv.need) || 1}</span>
+        <span class="mkt-lv-badge" dir="ltr">LV${Number(lv.need) || 5}</span>
         <div class="mkt-lv-main">
           <h2>${esc(t("mkt.lv.title"))}</h2>
           <p>${esc(t("mkt.lv.text", { level: `LV${Number(lv.level) || 0}`, have: M.fmt(Number(lv.earned) || 0), need: M.fmt(need) }))}</p>
@@ -1550,12 +1550,13 @@
       C.toast(t("mkt.err.suspendedStore"));
       return;
     }
-    // (round 30) no store yet and below LV1: Store settings say how to get there
+    // LV5 to open/sell — Store settings shows progress
     if (!state.me?.store && state.me?.can_open === false) {
       C.toast(t("mkt.lv.toast"));
       go("./Market.html#settings");
       return;
     }
+    if (!(await C.guardLevel("sell"))) return;
     M.openProductForm({
       store: state.me?.store || null,
       onSaved: async (id, info) => {

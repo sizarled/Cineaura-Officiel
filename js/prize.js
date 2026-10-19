@@ -1683,6 +1683,9 @@
     const cost = costOf(m);
     const coupon = codeOf(m);
     const k = modeKey(m);
+    // LV gates: challenge LV2, lottery/gift LV3
+    if (k === "challenge" && !(await C.guardLevel("challenge"))) return;
+    if ((k === "lottery" || k === "gift") && !(await C.guardLevel("lottery"))) return;
     const confirmed = k === "gift"
       ? confirm(t("prize.confirmClaim", { n: cost, title: p.title }))
       : confirm(t("prize.confirmSub", { n: cost }));

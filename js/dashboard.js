@@ -784,6 +784,7 @@
 
   async function copyPlaylist(pl) {
     if (!(await C.guardFeature("posts"))) return;
+    if (!(await C.guardLevel("create_content"))) return;
     const base = String(listLabel(pl)).replace(/\s+\d+$/, "").trim();
     const esc = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const re = new RegExp("^" + esc + "(?:\\s+(\\d+))?$", "i");
@@ -947,6 +948,7 @@
     };
     $("#pl-create").onclick = async () => {
       if (!(await C.guardFeature("posts"))) return;
+    if (!(await C.guardLevel("create_content"))) return;
       const name = $("#pl-name").value.trim();
       const description = $("#pl-desc").value.trim();
       if (!name) return toast(t("dash.nameList"));
@@ -1245,6 +1247,7 @@
     drawRows("#lk-series", tvRows, "tv");
     $("#lk-save").onclick = async () => {
       if (!(await C.guardFeature("links"))) return;
+      if (!(await C.guardLevel("publish_links"))) return;
       const type = $("#lk-type").value;
       const tmdbId = parseTmdbInput($("#lk-tmdb").value, type);
       const watchUrl = $("#lk-watch").value.trim();
@@ -2461,7 +2464,10 @@
       const quota = limits && usage && R?.limitCheck
         ? R.limitCheck(limits, state.member.membership_type, key, usage)
         : { ok: true };
-      const canJoin = timing.open && !mine && !full && baseOk && audienceOk && quota.ok && totalPoints >= cost;
+      const needLv = key === "challenge" ? 2 : key === "lottery" ? 3 : key === "gift" ? 3 : 0;
+      const haveLv = C.pointLevel(mp.earned);
+      const levelOk = haveLv >= needLv;
+      const canJoin = timing.open && !mine && !full && baseOk && audienceOk && quota.ok && totalPoints >= cost && levelOk;
       return { mine, timing, full, won, cap, cost, baseOk, audienceOk, quota, canJoin };
     };
     const plainWinner = (p) => winners.some((winner) =>

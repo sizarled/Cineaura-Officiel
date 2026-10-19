@@ -933,6 +933,7 @@
 
   async function recommendAccount() {
     if (!(await window.CineAura.guardFeature("posts"))) return;
+    if (!(await window.CineAura.guardLevel("create_content"))) return;
     const me = state.me.member;
     const host = state.hostMember;
     const fol = await supabaseRequest(
@@ -2364,6 +2365,7 @@
 
   async function savePlaylistPost() {
     if (!(await window.CineAura.guardFeature("posts"))) return;
+    if (!(await window.CineAura.guardLevel("create_content"))) return;
     const vis = readVis("cr");
     if (!vis) return;
     const title = $("#c-title").value.trim();
@@ -2606,6 +2608,7 @@
 
   async function saveRichPost(kind) {
     if (!(await window.CineAura.guardFeature("posts"))) return;
+    if (!(await window.CineAura.guardLevel("create_content"))) return;
     const d = state.draft;
     if (!d || d.kind !== kind) return;
     const vis = readVis("cr");

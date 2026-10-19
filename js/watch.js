@@ -843,6 +843,7 @@
       const playlistId = $("#pl-pick").value;
       if (!playlistId) return;
       if (!(await window.CineAura.guardFeature("posts"))) return;
+      if (!(await window.CineAura.guardLevel("create_content"))) return;
       const exists = await supabaseRequest(
         `/rest/v1/playlist_items?playlist_id=eq.${restValue(playlistId)}&tmdb_id=eq.${Number(mediaId)}&select=id`
       );
@@ -1197,6 +1198,7 @@
   async function publishRecPost(kind, title, body) {
     const session = getSession();
     if (!(await window.CineAura.guardFeature("posts"))) return { ok: false, blocked: true };
+    if (!(await window.CineAura.guardLevel("create_content"))) return { ok: false, blocked: true };
     const postId = newPostId();
     const saved = await supabaseRequest("/rest/v1/posts", {
       method: "POST",
@@ -1549,6 +1551,7 @@
       const picked = $("#rec-pick").value;
       if (!picked) return;
       if (!(await window.CineAura.guardFeature("posts"))) return;
+      if (!(await window.CineAura.guardLevel("create_content"))) return;
       const dup = await supabaseRequest(
         `/rest/v1/post_items?post_id=eq.${restValue(picked)}&tmdb_id=eq.${Number(mediaId)}&select=id`
       );
@@ -1872,6 +1875,8 @@
     }
 
     const button = $("#al-save");
+    if (!(await C.guardFeature("links"))) { button.disabled = false; return; }
+    if (!(await C.guardLevel("publish_links"))) { button.disabled = false; return; }
     button.disabled = true;
     // One row per chosen kind: watch (opens in the player), download (opens on
     // its own site) or both at once. A kind this URL already has is skipped.

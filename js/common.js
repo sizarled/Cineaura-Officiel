@@ -3998,6 +3998,140 @@
     };
   }
 
+  /* ════════════════════════════════════════════════════════════════════
+     LV-gated permissions — 2026-10-19 spec (cumulative, client-side guard;
+     server must enforce the same POINT_LEVELS thresholds via RLS / RPC):
+
+       LV0 (0 PT)  watch only: videos / channels / films / series
+       LV1 (10 PT) + create content + publish IPTV lists + publish watch/download links
+       LV2 (100 PT) + join challenge-mode prizes
+       LV3 (1K PT) + join prize/lottery-mode prizes (includes gift)
+       LV4 (10K PT) + buy in market
+       LV5 (100K PT) + sell in market (open store + publish products)
+       LV6 (1M PT) + auction buy
+       LV7 (10M PT) + auction sell
+     Each LV includes all previous. POINT_LEVELS defines the thresholds; see
+     levelInfo()/pointLevel(). Do not trust client alone — Supabase policies /
+     sql/market.sql, sql/prize*.sql, sql/content.sql should repeat the check.
+     ════════════════════════════════════════════════════════════════════ */
+  const FEATURE_MIN_LEVEL = {
+    // LV0 — everyone
+    watch: 0, view: 0,
+    // LV1 — creator / publisher
+    create_content: 1, createContent: 1, posts: 1, content: 1,
+    publish_iptv: 1, publishIptv: 1, iptv: 1,
+    publish_links: 1, publishLinks: 1, links: 1,
+    // LV2 — challenge prizes
+    challenge: 2, join_challenge: 2,
+    // LV3 — lottery / prize mode
+    lottery: 3, join_lottery: 3, prize: 3, gift: 3, join_prize: 3, withdraw: 3,
+    // LV4 — market buy
+    buy: 4, buy_market: 4, purchase: 4, market_buy: 4,
+    // LV5 — market sell
+    sell: 5, sell_market: 5, store_open: 5, market_sell: 5,
+    // LV6 / LV7 — auction
+    auction: 6, auction_buy: 6, auction_purchase: 6,
+    auction_sell: 7, auction_sale: 7,
+  };
+  function featureMinLevel(feature) {
+    const k = String(feature || "").trim().toLowerCase().replace(/-/g, "_");
+    if (k in FEATURE_MIN_LEVEL) return FEATURE_MIN_LEVEL[k];
+    return 0;
+  }
+  function canFeature(feature, earnedOrLevel) {
+    const need = featureMinLevel(feature);
+    if (need <= 0) return true;
+    if (earnedOrLevel == null) return true; // offline / unknown — let server decide
+    const v = Number(earnedOrLevel);
+    if (Number.isFinite(v) && v <= LEVEL_MAX && Number.isInteger(v) && v >= 0 && v < 1000) {
+      // looks like a level number, not earned points
+      // disambiguate: earned points >= 1000 could also be level-like; prefer points check when v >= 100
+      // but if caller passed level, level <=10; treat <20 as level
+      if (v <= 10) return v >= need;
+    }
+    return pointLevel(v) >= need;
+  }
+  function featureNeedPoints(feature) {
+    return POINT_LEVELS[featureMinLevel(feature)] ?? 0;
+  }
+  function levelGateMessage(feature, haveEarned) {
+    const needLv = featureMinLevel(feature);
+    const needPts = POINT_LEVELS[needLv] ?? 0;
+    const have = levelInfo(haveEarned);
+    const needName = levelName(needLv);
+    const norm = String(feature || "").trim().toLowerCase().replace(/-/g, "_");
+    const keyByFeature = {
+      challenge: "level.err.challenge",
+      join_challenge: "level.err.challenge",
+      lottery: "level.err.lottery",
+      join_lottery: "level.err.lottery",
+      gift: "level.err.lottery",
+      prize: "level.err.lottery",
+      join_prize: "level.err.lottery",
+      buy: "level.err.buy",
+      buy_market: "level.err.buy",
+      market_buy: "level.err.buy",
+      purchase: "level.err.buy",
+      sell: "level.err.sell",
+      sell_market: "level.err.sell",
+      market_sell: "level.err.sell",
+      store_open: "level.err.sell",
+      auction_buy: "level.err.auctionBuy",
+      auction_purchase: "level.err.auctionBuy",
+      auction_sell: "level.err.auctionSell",
+      auction_sale: "level.err.auctionSell",
+      create_content: "level.err.createContent",
+      createcontent: "level.err.createContent",
+      posts: "level.err.createContent",
+      publish_links: "level.err.publishLinks",
+      publishlinks: "level.err.publishLinks",
+      links: "level.err.publishLinks",
+      publish_iptv: "level.err.publishIptv",
+      publishiptv: "level.err.publishIptv",
+      iptv: "level.err.publishIptv",
+    };
+    const key = keyByFeature[norm] || "level.err.generic";
+    // compact formatting for points
+    const fmt = (n) => {
+      try { return Number(n).toLocaleString(getLocale()); } catch { return String(n); }
+    };
+    return t(key, {
+      need: needName,
+      have: have.name,
+      needPoints: fmt(needPts),
+      havePoints: fmt(have.earned),
+      needPts: fmt(needPts),
+      havePts: fmt(have.earned),
+      level: needName,
+      haveLevel: have.name,
+      points: fmt(Math.max(0, needPts - have.earned)),
+      needLevel: needName,
+      haveEarned: fmt(have.earned),
+    });
+  }
+  async function guardLevel(feature) {
+    const min = featureMinLevel(feature);
+    if (min <= 0) return true;
+    const sess = getSession();
+    if (!sess?.member_id) return true; // auth gate handles sign-in
+    try {
+      const mp = await memberPoints(sess.member_id);
+      const have = Number(mp?.earned || 0);
+      if (pointLevel(have) >= min) return true;
+      toast(levelGateMessage(feature, have));
+      return false;
+    } catch {
+      // offline: don't block
+      return true;
+    }
+  }
+  // Sanctions + level in one call (sanctions first, so banned message wins)
+  async function guardAccess(feature) {
+    if (!(await guardFeature(feature))) return false;
+    if (!(await guardLevel(feature))) return false;
+    return true;
+  }
+
   // Total number of rows of a query, read from the content-range header so the
   // rows themselves never travel over the wire.
   async function countRows(path) {
@@ -4958,6 +5092,13 @@
     pointsEarned,
     WATCH_TIERS,
     POINT_LEVELS,
+    FEATURE_MIN_LEVEL,
+    featureMinLevel,
+    canFeature,
+    featureNeedPoints,
+    levelGateMessage,
+    guardLevel,
+    guardAccess,
     watchTier,
     pointLevel,
     levelMultiplier,

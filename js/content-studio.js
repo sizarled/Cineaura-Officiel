@@ -630,6 +630,7 @@
       publishAt = new Date(Date.now() + WHEN_MS[d.when]).toISOString();
     }
     if (!(await C.guardFeature("posts"))) return;
+    if (!(await C.guardLevel("create_content"))) return;
     const btn = pane.querySelector("#vc-go");
     btn.disabled = true;
     btn.textContent = t("vid.publishing");
