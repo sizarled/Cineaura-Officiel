@@ -370,12 +370,8 @@
     note.classList.remove("flash");
     void note.offsetWidth; // restart the highlight
     note.classList.add("flash");
-    // Avoid jumping watch page to top when gate appears on button click
-    try {
-      const r = note.getBoundingClientRect();
-      const vh = window.innerHeight || document.documentElement.clientHeight;
-      if (r.top < 0 || r.bottom > vh) note.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
-    } catch {}
+    // Auto-scroll disabled per user request
+    void note.offsetWidth;
     setTimeout(() => note.classList.remove("flash"), 1400);
   }
 

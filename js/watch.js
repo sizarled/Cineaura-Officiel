@@ -777,14 +777,8 @@
 
   // Only scroll when the target is off-screen — avoids the "jump to top" on every click
   function maybeScrollTo(el, opts = { behavior: "smooth", block: "nearest" }) {
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const vh = window.innerHeight || document.documentElement.clientHeight;
-    const fullyVisible = r.top >= 0 && r.bottom <= vh;
-    const partlyVisible = r.top < vh && r.bottom > 0;
-    // If at least partly visible, don't force a scroll — the user is already there
-    if (fullyVisible || partlyVisible) return;
-    el.scrollIntoView(opts);
+    // Disabled per user request: do not auto-scroll on any button/menu click
+    return;
   }
 
   /* Choosing a watch link stops what plays and brings the play button back, with
