@@ -2204,6 +2204,8 @@
   function renderProviders() {
     const el = $("#watch-providers");
     if (!el) return;
+    // Preserve scroll position — changing Region/quality re-renders this panel and previously jumped to top
+    const _sx = window.scrollX, _sy = window.scrollY;
     el.hidden = false;
     const regions = providerRegions();
     if (!regions.length) {
@@ -2212,6 +2214,7 @@
           <h2>${t("watch.providers")}</h2>
           <p class="muted">${t("watch.noProviders")}</p>
         </div></div>`;
+      requestAnimationFrame(() => window.scrollTo(_sx, _sy));
       return;
     }
     const region = regions.includes(state.providerRegion) ? state.providerRegion : regions[0];
@@ -2220,17 +2223,31 @@
     const sel = $("#prov-region");
     if (sel) {
       sel.onchange = (e) => {
+        e.preventDefault?.(); e.stopPropagation?.();
+        const _x = window.scrollX, _y = window.scrollY;
         state.providerRegion = e.target.value;
         state.providerQuality = "best_price";
         renderProviders();
         loadProviderOffers(state.providerRegion);
+        requestAnimationFrame(() => window.scrollTo(_x, _y));
       };
+      // Prevent opening the select from bubbling to global handlers that scroll
+      sel.onclick = (e) => e.stopPropagation();
+      sel.onmousedown = (e) => e.stopPropagation();
     }
     $$(".prov-tab", el).forEach((tab) => {
-      tab.onclick = () => {
+      tab.onclick = (e) => {
+        e.preventDefault?.(); e.stopPropagation?.();
+        const _x = window.scrollX, _y = window.scrollY;
         state.providerQuality = tab.dataset.quality || "best_price";
         renderProviders();
+        requestAnimationFrame(() => window.scrollTo(_x, _y));
       };
+    });
+    // Prevent label wrapper from causing scroll propagation
+    el.querySelectorAll(".prov-region, .prov-controls, .links-head").forEach((w) => {
+      w.addEventListener("click", (e) => e.stopPropagation(), { capture: true });
+      w.addEventListener("mousedown", (e) => e.stopPropagation(), { capture: true });
     });
     // A logo TMDB no longer serves falls back to the platform's initial.
     $$(".provider-logo", el).forEach((img) => {
@@ -2243,6 +2260,8 @@
         img.replaceWith(mono);
       };
     });
+    // Final restore for direct calls (e.g. loadProviderOffers)
+    requestAnimationFrame(() => window.scrollTo(_sx, _sy));
   }
 
   // Prices and qualities come from the server, which reads TMDB's watch page for
