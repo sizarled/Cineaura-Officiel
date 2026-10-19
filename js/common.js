@@ -2694,6 +2694,10 @@
             <p class="sset-hint" data-i18n="set.styleHint">14 looks — Default glass plus your favourite apps and systems. Dark/Light shades each one.</p>
             <div id="sset-themes-grid" class="sset-themes-grid" role="radiogroup" aria-labelledby="sset-style-lbl"></div>
           </div>
+          <div class="sset-row" style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-sm btn-primary" id="sset-customize" type="button">🎨 تخصيص الموقع</button>
+            <button class="btn btn-sm btn-ghost" id="sset-reset-layout" type="button">↺ العودة للوضع الافتراضي</button>
+          </div>
           <div class="sset-row sset-adfree">
             <div class="sset-switch-line">
               <div class="sset-switch-text">
@@ -2916,6 +2920,20 @@
         patchProfile({ theme: b.dataset.themePick });
       })
     );
+
+    // Customize / Reset layout buttons
+    overlay.querySelector("#sset-customize")?.addEventListener("click", ()=>{
+      close();
+      if(window.CineAuraCustomizer) window.CineAuraCustomizer.open();
+      else {
+        // fallback if customizer not loaded yet — load it
+        const s=document.createElement("script"); s.src="js/customizer.js"; s.onload=()=> window.CineAuraCustomizer.open(); document.head.appendChild(s);
+      }
+    });
+    overlay.querySelector("#sset-reset-layout")?.addEventListener("click", ()=>{
+      if(window.CineAuraLayouts){ const c=window.CineAuraLayouts.resetToDefault(); window.CineAuraLayouts.applyAll(c); toast(t("set.resetDone")||"تمت العودة للافتراضي"); }
+      else { try{ localStorage.removeItem("cineaura_layout"); }catch{} toast(t("set.resetDone")||"تمت العودة للافتراضي"); location.reload(); }
+    });
 
     adBox.addEventListener("change", async () => {
       const on = adBox.checked;

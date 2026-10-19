@@ -70,6 +70,8 @@
     "set.light": "Light",
     "set.style": "Theme style",
     "set.styleHint": "14 looks — Default glass plus your favourite apps and systems. Dark / Light shades each one.",
+    "set.resetDone": "تمت العودة للوضع الافتراضي",
+    "set.customize": "تخصيص الموقع",
     "set.adfree": "Watch without ads",
     "set.adfreeP": "When on, no ads are shown and your watch minutes are not counted.",
     "set.adfreeGuest": "Sign in with a Premium plan to use this option.",

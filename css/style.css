@@ -475,12 +475,14 @@ body.is-logged-in .link-dashboard {
   z-index: 3;
   width: min(1220px, calc(100% - 40px));
   margin: auto 0 0;
-  padding: 130px 0 150px;
+  padding: 130px 20px 150px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 210px;
   gap: 40px;
   align-items: end;
 }
+.hero-copy{ padding-inline: 8px; }
+@media (max-width: 900px){ .hero-content{ padding-inline: 16px; } .hero-copy{ padding-inline: 6px; } }
 
 .hero-copy h1 {
   font-family: var(--serif);

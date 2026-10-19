@@ -841,3 +841,12 @@ html[data-theme="day"][data-style="win8"] .logo-word{ color:#ffffff; }
 html[data-theme="day"][data-style="win8"] .logo-mark::before,
 html[data-theme="day"][data-style="win8"] .logo-mark::after{ background:#ffffff; }
 html[data-theme="day"][data-style="win8"] .hamburger{ border-color:rgba(255,255,255,.4); }
+
+/* Hero title breathing space — keep story title away from screen edge */
+.hero-content{ padding-inline:20px; }
+@media(max-width:900px){ .hero-content{ padding-inline:16px; } }
+html[data-style] .hero-content{ padding-inline:20px; }
+html[data-style="facebook"] .hero-content,
+html[data-style="win7"] .hero-content,
+html[data-style="macos"] .hero-content{ padding-inline:20px; }
+.hero-copy{ padding-inline:8px; }

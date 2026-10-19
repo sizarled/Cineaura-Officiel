@@ -55,6 +55,16 @@
       if(!document.querySelector('script[src="js/themes.js"]')){
         const s=document.createElement("script"); s.src="js/themes.js"; s.defer=true; document.head.appendChild(s);
       }
+      // customizer engine + styles
+      if(!document.querySelector('link[href="css/customizer.css"]')){
+        const lc=document.createElement("link"); lc.rel="stylesheet"; lc.href="css/customizer.css"; document.head.appendChild(lc);
+      }
+      if(!document.querySelector('script[src="js/layouts.js"]')){
+        const sl=document.createElement("script"); sl.src="js/layouts.js"; sl.defer=true; document.head.appendChild(sl);
+      }
+      if(!document.querySelector('script[src="js/customizer.js"]')){
+        const sc=document.createElement("script"); sc.src="js/customizer.js"; sc.defer=true; document.head.appendChild(sc);
+      }
     }catch{}
     html.lang = lang;
     html.dir = lang === "ar" ? "rtl" : "ltr";
