@@ -332,6 +332,7 @@
     main.onclick = null;
     const map = {
       overview: viewOverview,
+      level: viewLevel,
       points: viewPoints,
       withdraw: viewWithdraw,
       playlists: viewPlaylists,
@@ -3059,6 +3060,42 @@
     });
   }
 
+  // ---------- Level: current LV, progress to next, permissions per level (LV0…LV7) ----------
+  async function viewLevel(main) {
+    main.innerHTML = `\n      <p class="eyebrow">${t("dash.nav.level")}</p>\n      <h1>${escapeHtml(t("level.title"))}</h1>\n      <p class="muted">${escapeHtml(t("level.lead"))}</p>\n      <div id="lv-body"><p class="muted">${escapeHtml(t("common.loading"))}</p></div>`;
+    const body = main.querySelector("#lv-body");
+    let mp;
+    try {
+      const prof = await supabaseRequest(`/rest/v1/profiles?member_id=eq.${restValue(state.member.member_id)}&select=*`);
+      if (prof.ok && Array.isArray(prof.data) && prof.data[0]) state.profile = { ...(state.profile || {}), ...prof.data[0] };
+      mp = await C.memberPoints(state.member.member_id, state.profile || {});
+    } catch {
+      if (body) body.innerHTML = `<p class="empty">${escapeHtml(t("points.loadFail"))}</p>`;
+      return;
+    }
+    if (!main.isConnected || state.section !== "level") return;
+    const lv = mp.level;
+    const have = lv.earned;
+    const next = lv.next;
+    const toGo = next ? Math.max(0, next.at - have) : 0;
+    const pct = Math.round(lv.progress * 100);
+    const fmt = (n) => { try { return Number(n).toLocaleString(C.getLocale()); } catch { return String(n); } };
+    const hero = next
+      ? `<div class="pt-level lv-hero" data-level="${lv.level}">\n          <span class="pt-lv-badge"><bdi dir="ltr">${escapeHtml(lv.name)}</bdi></span>\n          <div class="pt-lv-main">\n            <div class="pt-lv-top"><b>${escapeHtml(t("level.current"))}: ${escapeHtml(lv.name)} · ${escapeHtml(t("level.multiplier",{n: lv.multiplier}))}</b><span class="pt-lv-next">${escapeHtml(t("level.earned",{n: fmt(have)}))} · ${escapeHtml(t("level.remaining",{n: fmt(toGo), next: next.name}))}</span></div>\n            <div class="pt-lv-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${escapeHtml(t("level.progressLabel",{pct, next: next.name}))}"><span style="width:${pct}%"></span></div>\n            <small class="muted">${escapeHtml(t("level.nextIn",{need: fmt(next.at), next: next.name}))} — ${escapeHtml(t("level.progressLabel",{pct, next: next.name}))}</small>\n          </div>\n        </div>`
+      : `<div class="pt-level lv-hero" data-level="${lv.level}">\n          <span class="pt-lv-badge"><bdi dir="ltr">${escapeHtml(lv.name)}</bdi></span>\n          <div class="pt-lv-main">\n            <div class="pt-lv-top"><b>${escapeHtml(t("level.current"))}: ${escapeHtml(lv.name)} · ${escapeHtml(t("level.multiplier",{n: lv.multiplier}))}</b><span class="pt-lv-next">${escapeHtml(t("level.maxReached"))}</span></div>\n            <div class="pt-lv-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><span style="width:100%"></span></div>\n          </div>\n        </div>`;
+    const rows = C.POINT_LEVELS.map((at, i) => {
+      const isCur = i === lv.level;
+      const unlocked = lv.level >= i;
+      const permKey = C.LEVEL_PERMS[i] || "level.perm.max";
+      const perm = t(permKey);
+      const status = isCur ? `<span class="lv-badge is-cur">${escapeHtml(t("level.statusCurrent"))}</span>` : unlocked ? `<span class="lv-badge is-on">${escapeHtml(t("level.statusUnlocked"))}</span>` : `<span class="lv-badge is-off">${escapeHtml(t("level.statusLocked"))}</span>`;
+      const needTxt = `<bdi dir="ltr">${fmt(at)}</bdi>`;
+      const trCls = isCur ? ' class="is-you" aria-current="true"' : unlocked ? ' class="is-unlocked"' : '';
+      return `<tr${trCls}><td><bdi dir="ltr">${escapeHtml(C.levelName(i))}</bdi></td><td>${needTxt}</td><td>${escapeHtml(perm)}</td><td>${status}</td></tr>`;
+    }).join("");
+    body.innerHTML = `\n      ${hero}\n      <section class="glass lv-perms" style="margin-top:18px;padding:16px">\n        <h2 style="margin:0 0 4px">${escapeHtml(t("level.permissionsTitle"))}</h2>\n        <p class="muted" style="margin:0 0 12px">${escapeHtml(t("level.permissionsSub"))}</p>\n        <div style="overflow:auto"><table class="pt-table lv-table">\n          <thead><tr><th>${escapeHtml(t("level.colLevel"))}</th><th>${escapeHtml(t("level.colPoints"))}</th><th>${escapeHtml(t("level.colUnlocks"))}</th><th>${escapeHtml(t("level.colStatus"))}</th></tr></thead>\n          <tbody>${rows}</tbody>\n        </table></div>\n        <p class="muted" style="margin:10px 0 0">${escapeHtml(t("level.hint"))}</p>\n      </section>\n      <details class="pt-rules" style="margin-top:12px"><summary>${escapeHtml(t("points.levelsTitle"))}</summary>${C.levelHtml(mp)}</details>\n      <style>\n        .lv-hero{padding:14px}\n        .lv-perms .pt-table{width:100%;min-width:520px}\n        .lv-badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid var(--border)}\n        .lv-badge.is-cur{background:var(--accent);color:#fff;border-color:var(--accent)}\n        .lv-badge.is-on{background:#1a7f37;color:#fff;border-color:#1a7f37}\n        .lv-badge.is-off{opacity:.7}\n        .pt-table tr.is-you{background:rgba(144,206,161,.12)}\n        .pt-table tr.is-unlocked{opacity:1}\n      </style>`;
+  }
+
   // ---------- Withdraw: points exchanged for real money (js/withdraw.js, sql/withdrawals.sql) ----------
   // LV3 and an account old enough for its membership (Free 12 months, Silver 6, Gold 3, Diamond 1);
   // a bank transfer or a money transfer agency such as Western Union.
@@ -3337,7 +3374,7 @@
 
   // "points" (Earn points / Buy points / Earn prizes / Shop now, the sources and the spends) moved here from the profile;
   // "withdraw": points exchanged for money (js/withdraw.js, sql/withdrawals.sql)
-  const SECTIONS = ["overview","points","withdraw","playlists","links","reports","codes","iptv","views","analytics","prizes","history","settings"];
+  const SECTIONS = ["overview","level","points","withdraw","playlists","links","reports","codes","iptv","views","analytics","prizes","history","settings"];
   // dashboard.html#claims: Prizes > Prize claims (where the claim notifications lead)
   // dashboard.html#devices: Codes > Linked devices (named by the watch page)
   // dashboard.html#iptv-lists: IPTV > Your lists

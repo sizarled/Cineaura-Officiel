@@ -3848,6 +3848,7 @@
   NAV_ICONS.packages = '<path d="M3.5 7.5L12 3.2l8.5 4.3v9L12 20.8l-8.5-4.3z"/><path d="M3.5 7.5L12 11.8l8.5-4.3M12 11.8v9M7.8 5.3l8.4 4.3"/>';
   // Dashboard > Withdraw and Panel > Withdrawals (sql/withdrawals.sql): a banknote going out
   NAV_ICONS.withdraw = '<rect x="2.5" y="4.5" width="19" height="11" rx="2"/><circle cx="12" cy="10" r="2.4"/><path d="M6 7.5v5M18 7.5v5M12 17.5v4M9.6 19.4L12 21.8l2.4-2.4"/>';
+  NAV_ICONS.level = '<path d="M12 3l3 4h4l-3 3 1 4-5-3-5 3 1-4-3-3h4z"/><path d="M12 14v5"/>';
   NAV_ICONS.withdrawals = NAV_ICONS.withdraw;
 
   function navIcon(name) {
@@ -4014,6 +4015,20 @@
      levelInfo()/pointLevel(). Do not trust client alone — Supabase policies /
      sql/market.sql, sql/prize*.sql, sql/content.sql should repeat the check.
      ════════════════════════════════════════════════════════════════════ */
+  // Human name for each LV's new permission (cumulative). Index = LV.
+  const LEVEL_PERMS = [
+    "level.perm.0",
+    "level.perm.1",
+    "level.perm.2",
+    "level.perm.3",
+    "level.perm.4",
+    "level.perm.5",
+    "level.perm.6",
+    "level.perm.7",
+    "level.perm.max",
+    "level.perm.max",
+    "level.perm.max",
+  ];
   const FEATURE_MIN_LEVEL = {
     // LV0 — everyone
     watch: 0, view: 0,
@@ -5092,6 +5107,7 @@
     pointsEarned,
     WATCH_TIERS,
     POINT_LEVELS,
+    LEVEL_PERMS,
     FEATURE_MIN_LEVEL,
     featureMinLevel,
     canFeature,
