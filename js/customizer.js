@@ -520,8 +520,9 @@
       }
     }catch{}
   }
-  // ----- preview-before-apply (طلب المستخدم 2026-10-19) -----
-  let previewActive=false, previewOriginal=null, previewTemp=null, previewBar=null, previewStyleBackup=null, previewStyleOriginal=null;
+  // ----- preview-before-apply in blob (طلب المستخدم 2026-10-19) -----
+  let previewActive=false, previewOriginal=null, previewTemp=null, previewBar=null, previewStyleBackup=null, previewStyleOriginal=null, blobModal=null, blobUrl=null, blobFrame=null;
+  const PAGE_URL_MAP={ home:'index.html', watch:'watch.html?tmdb=530', content:'content.html', market:'market.html', dashboard:'dashboard.html', profile:'profile.html' };
   function collectPendingConfig(){
     const base=getConfig();
     try{ return JSON.parse(JSON.stringify(base)); }catch{ return base; }
@@ -542,44 +543,124 @@
     previewBar.querySelector("#lz-preview-cancel").onclick=cancelPreview;
     return previewBar;
   }
-  function startPreviewWith(tempCfg, label){
+  function ensureBlobModal(){
+    if(blobModal) return blobModal;
+    blobModal=document.createElement('div');
+    blobModal.id='lz-blob-modal';
+    blobModal.hidden=true;
+    blobModal.style.cssText='position:fixed;inset:0;z-index:100000;display:flex;flex-direction:column;background:rgba(0,0,0,.82);backdrop-filter:blur(6px)';
+    blobModal.innerHTML=`
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;background:#0b0f14;border-bottom:2px solid var(--cyan,#00d4ff);color:#fff;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span id="lz-blob-title" style="font-weight:800">👁 معاينة</span>
+          <small id="lz-blob-sub" style="opacity:.7">صفحة معزولة — لن يُحفظ شيء حتى تضغط تطبيق</small>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-ghost" id="lz-blob-close" type="button" style="color:#fff;border-color:rgba(255,255,255,.3)">✕ إغلاق</button>
+          <button class="btn btn-sm btn-ghost" id="lz-blob-cancel" type="button" style="color:#fff;border-color:rgba(255,255,255,.3)">↩ إلغاء</button>
+          <button class="btn btn-sm btn-primary" id="lz-blob-confirm" type="button">✓ تطبيق وحفظ</button>
+        </div>
+      </div>
+      <div style="flex:1;position:relative;background:#fff">
+        <iframe id="lz-blob-frame" title="معاينة" style="width:100%;height:100%;border:0;background:#fff"></iframe>
+        <div id="lz-blob-loader" style="position:absolute;inset:0;display:grid;place-items:center;background:rgba(255,255,255,.9);font-weight:700;color:#032541">جاري تحميل المعاينة…</div>
+      </div>`;
+    document.body.appendChild(blobModal);
+    blobModal.querySelector('#lz-blob-close').onclick=closeBlobPreview;
+    blobModal.querySelector('#lz-blob-cancel').onclick=cancelPreview;
+    blobModal.querySelector('#lz-blob-confirm').onclick=confirmPreview;
+    blobModal.addEventListener('mousedown', e=>{ if(e.target===blobModal) closeBlobPreview(); });
+    return blobModal;
+  }
+  function showBlobModal(url, label, cfg){
+    ensureBlobModal();
+    blobModal.hidden=false;
+    document.documentElement.classList.add('lz-blob-open');
+    document.body.style.overflow='hidden';
+    const title=blobModal.querySelector('#lz-blob-title');
+    const sub=blobModal.querySelector('#lz-blob-sub');
+    if(label) title.textContent='👁 '+label;
+    if(cfg&&cfg.preset) sub.textContent=`نمط ${cfg.preset} — معاينة معزولة في blob`;
+    // preserve for confirm
+    previewActive=true; previewTemp=cfg;
+    try{ previewOriginal=collectPendingConfig(); }catch{}
+    blobFrame=blobModal.querySelector('#lz-blob-frame');
+    const loader=blobModal.querySelector('#lz-blob-loader');
+    loader.hidden=false;
+    blobFrame.onload=()=>{ loader.hidden=true; };
+    blobFrame.src=url;
+    // also show top bar for consistency
+    ensurePreviewBar();
+    previewBar.hidden=false;
+    document.documentElement.classList.add('lz-preview');
+    updatePreviewBtns();
+    applyToast('🔍 معاينة في blob — صفحة معزولة، اضغط تطبيق للحفظ');
+  }
+  function closeBlobPreview(){
+    if(blobModal) blobModal.hidden=true;
+    document.documentElement.classList.remove('lz-blob-open');
+    document.body.style.overflow='';
+    if(blobFrame) blobFrame.src='about:blank';
+    if(blobUrl){ try{ URL.revokeObjectURL(blobUrl); }catch{} blobUrl=null; }
+    // keep previewActive so confirm still works until cancelled, but hide bar only on cancel/confirm
+  }
+  async function openBlobPreview(page, cfg, label){
+    const target=PAGE_URL_MAP[page]||'index.html';
+    const baseUrl=target.split('?')[0];
     try{
-      previewOriginal=collectPendingConfig();
-      previewTemp=tempCfg;
-      const L=window.CineAuraLayouts; if(!L||!L.applyAll) return applyToast("المُخصص غير جاهز");
-      L.applyAll(tempCfg);
-      ensurePreviewBar();
-        if(label) previewBar.querySelector("#lz-preview-label").textContent="👁 "+label+" — غير محفوظة، اضغط تطبيق أو إلغاء";
-      previewBar.hidden=false;
-      document.documentElement.classList.add("lz-preview");
-      previewActive=true;
-      updatePreviewBtns();
-      applyToast("🔍 معاينة — لم يُحفظ بعد. استخدم شريط المعاينة للتأكيد");
-      if(overlay){ const h=overlay.querySelector("#lz-preview"); if(h) h.textContent="✕ إلغاء المعاينة"; const f=overlay.querySelector("#lz-preview-foot"); if(f) f.textContent="✕ إلغاء المعاينة"; }
-    }catch(e){ console.warn(e); }
+      const res=await fetch(baseUrl, {cache:'no-store'});
+      if(!res.ok) throw new Error('fetch failed '+res.status);
+      let html=await res.text();
+      // ensure base href so blob resolves relative css/js
+      const origin=location.origin;
+      const baseHref=origin+'/'+baseUrl.replace(/^\.?\//,'').split('/').slice(0,-1).join('/')+(baseUrl.includes('/')?'/':'');
+      const baseTag=`<base href="${origin}/">`;
+      if(!/<base\s/i.test(html)){
+        html=html.replace(/<head[^>]*>/i, m=> m+baseTag);
+      }
+      // inject preview config before layouts.js
+      const cfgJson=JSON.stringify(cfg).replace(/</g,'\\u003c');
+      const styleJson=cfg.customStyle? JSON.stringify(cfg.customStyle).replace(/</g,'\\u003c') : 'null';
+      const targetForHistory=target.replace(/'/g,"\\'");
+      const inject=`<script>window.__CINEAURA_PREVIEW__=${cfgJson};window.__CINEAURA_PREVIEW_STYLE__=${styleJson};try{sessionStorage.setItem('cineaura_preview', JSON.stringify(window.__CINEAURA_PREVIEW__)); if(window.__CINEAURA_PREVIEW_STYLE__) sessionStorage.setItem('cineaura_preview_style', JSON.stringify(window.__CINEAURA_PREVIEW_STYLE__));}catch{} try{ history.replaceState(null,'','${targetForHistory}'); }catch{}
+(function(){var c=window.__CINEAURA_PREVIEW_STYLE__; if(!c) return; try{var css=":root{"; if(c.primary) css+=" --cyan:"+c.primary+"; --cyan-2:"+c.primary+";"; if(c.accent) css+=" --green:"+c.accent+";"; if(c.bg) css+=" --ink:"+c.bg+";"; if(c.text) css+=" --text:"+c.text+";"; if(c.muted) css+=" --muted:"+c.muted+";"; if(c.surface) css+=" --surface:"+c.surface+";"; css+="}"; var t=document.createElement("style"); t.id="lz-custom-preview"; t.textContent=css; (document.head||document.documentElement).appendChild(t);}catch(e){} })();
+<\/script>`;
+      html=html.replace(/<head[^>]*>/i, m=> m+inject);
+      // inject small banner inside blob to indicate preview mode
+      const bannerInject=`<style>html::before{content:"👁 معاينة — ${label?label.replace(/"/g,''):'blob'} — لن يُحفظ حتى تضغط تطبيق";position:fixed;top:0;left:0;right:0;z-index:9999;background:color-mix(in srgb, #00d4ff 16%, #0b0f14);color:#fff;padding:6px 12px;font:700 12px system-ui;border-bottom:2px solid #00d4ff;text-align:center} body{padding-top:28px !important}<\/style>`;
+      html=html.replace(/<head[^>]*>/i, m=> m+bannerInject);
+      const blob=new Blob([html], {type:'text/html'});
+      blobUrl=URL.createObjectURL(blob);
+      showBlobModal(blobUrl, label||('معاينة '+page), cfg);
+      return;
+    }catch(e){
+      console.warn('blob preview fallback', e);
+      // fallback: open target with cine_preview param and sessionStorage
+      try{
+        sessionStorage.setItem('cineaura_preview', JSON.stringify(cfg));
+        if(cfg.customStyle) sessionStorage.setItem('cineaura_preview_style', JSON.stringify(cfg.customStyle));
+        const sep=target.includes('?')?'&':'?';
+        showBlobModal(target+sep+'cine_preview=1', label||('معاينة '+page), cfg);
+      }catch{
+        // ultimate fallback: direct apply on current page (old behavior)
+        const L=window.CineAuraLayouts; if(L&&L.applyAll){ previewOriginal=collectPendingConfig(); previewTemp=cfg; L.applyAll(cfg); if(cfg.customStyle) previewCustomStyle(cfg.customStyle); ensurePreviewBar(); previewBar.hidden=false; document.documentElement.classList.add('lz-preview'); previewActive=true; updatePreviewBtns(); applyToast('🔍 معاينة — لم يُحفظ بعد'); }
+      }
+    }
+  }
+  function startPreviewWith(tempCfg, label){
+    // blob-first: open isolated preview instead of mutating current page
+    openBlobPreview(activePage, tempCfg, label);
   }
   function startStylePreviewWith(colors, label){
     try{
-      const tag=document.getElementById("lz-custom-preview");
-      previewStyleBackup= tag ? tag.textContent : "";
-      previewStyleOriginal=collectPendingConfig().customStyle || null;
-      previewCustomStyle(colors);
-      ensurePreviewBar();
-      if(label) previewBar.querySelector("#lz-preview-label").textContent="👁 "+label+" — غير محفوظة، اضغط تطبيق أو إلغاء";
-      previewBar.hidden=false;
-      document.documentElement.classList.add("lz-preview");
-      previewActive=true;
-      // store temp style for confirm
-      previewTemp=collectPendingConfig(); previewTemp.customStyle=colors;
-      updatePreviewBtns();
-      applyToast("🔍 معاينة ألوان — لم تُحفظ بعد");
-      if(overlay){ const h=overlay.querySelector("#lz-preview"); if(h) h.textContent="✕ إلغاء المعاينة"; const f=overlay.querySelector("#lz-preview-foot"); if(f) f.textContent="✕ إلغاء المعاينة"; }
+      // build preview config that merges current layout + new colors
+      const cfg=collectPendingConfig(); cfg.customStyle=colors;
+      openBlobPreview(activePage, cfg, label||'معاينة ألوان');
     }catch(e){ console.warn(e); }
   }
   function togglePreview(){
     if(previewActive) return cancelPreview();
     const cfg=collectPendingConfig();
-    // merge list order if templates panel visible
     const list=document.getElementById("lz-order-list");
     if(list && activeTab==="templates"){
       const page=activePage; const newOrder=[...list.querySelectorAll(".lz-item")].map(el=>el.dataset.id);
@@ -598,14 +679,14 @@
       if(previewTemp){
         const L=window.CineAuraLayouts; L.saveConfig(previewTemp); L.applyAll(previewTemp);
         if(previewTemp.customStyle) previewCustomStyle(previewTemp.customStyle);
+        // also sync style to localStorage helper if present
+        try{ if(previewTemp.customStyle) localStorage.setItem('cineaura_custom_style', JSON.stringify(previewTemp.customStyle)); }catch{}
         applyToast("✓ تم التطبيق والحفظ");
       } else if(previewStyleBackup!==null){
         const cfg=collectPendingConfig(); cfg.customStyle=JSON.parse(JSON.stringify(previewTemp && previewTemp.customStyle ? previewTemp.customStyle : {}));
-        // generic fallback: save current style tag colors
         const curTag=document.getElementById("lz-custom-preview");
         if(curTag){
-          // colors already previewed — persist
-          const L=window.CineAuraLayouts; const c=collectPendingConfig(); // need to extract from tag? use stored previewTemp
+          const L=window.CineAuraLayouts; const c=collectPendingConfig();
           if(previewTemp && previewTemp.customStyle){ c.customStyle=previewTemp.customStyle; L.saveConfig(c); }
         }
         applyToast("✓ تم التطبيق");
@@ -633,6 +714,8 @@
     if(previewBar) previewBar.hidden=true;
     document.documentElement.classList.remove("lz-preview");
     updatePreviewBtns();
+    closeBlobPreview();
+    try{ sessionStorage.removeItem('cineaura_preview'); sessionStorage.removeItem('cineaura_preview_style'); }catch{}
   }
   function applyCurrent(){
     const cfg=collectPendingConfig();

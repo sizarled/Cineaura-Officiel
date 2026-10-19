@@ -2198,14 +2198,20 @@
   function renderProviders() {
     const el = $("#watch-providers");
     if (!el) return;
-    // Don't destroy active text selection — user may be copying a provider name
+    // Preserve text selection — save range before destroying DOM
+    let _savedRange=null, _savedSel=null;
     try {
       const sel = window.getSelection && window.getSelection();
-      if (sel && sel.toString().trim()) {
+      if (sel && sel.rangeCount && !sel.isCollapsed && sel.toString().trim()) {
         const anchor = sel.anchorNode && sel.anchorNode.parentElement;
-        if (anchor && el.contains(anchor)) return;
         const focus = sel.focusNode && sel.focusNode.parentElement;
-        if (focus && el.contains(focus)) return;
+        const inside = (anchor && el.contains(anchor)) || (focus && el.contains(focus));
+        if (inside) {
+          // try to save range to restore after re-render
+          _savedSel=sel;
+          try{ _savedRange=sel.getRangeAt(0).cloneRange(); }catch{ _savedRange=null; }
+          // will restore after render instead of early return
+        }
       }
     } catch {}
     // Preserve scroll position — changing Region/quality re-renders this panel and previously jumped to top
@@ -2218,7 +2224,7 @@
           <h2>${t("watch.providers")}</h2>
           <p class="muted">${t("watch.noProviders")}</p>
         </div></div>`;
-      requestAnimationFrame(() => window.scrollTo(_sx, _sy));
+      requestAnimationFrame(() => { window.scrollTo(_sx, _sy); if(_savedRange&&_savedSel) try{_savedSel.removeAllRanges();_savedSel.addRange(_savedRange);}catch{} });
       return;
     }
     const region = regions.includes(state.providerRegion) ? state.providerRegion : regions[0];
@@ -2264,8 +2270,13 @@
         img.replaceWith(mono);
       };
     });
-    // Final restore for direct calls (e.g. loadProviderOffers)
-    requestAnimationFrame(() => window.scrollTo(_sx, _sy));
+    // Final restore for direct calls (e.g. loadProviderOffers) — plus restore selection if we saved it
+    requestAnimationFrame(() => {
+      window.scrollTo(_sx, _sy);
+      if(_savedRange && _savedSel){
+        try{ _savedSel.removeAllRanges(); _savedSel.addRange(_savedRange); }catch{}
+      }
+    });
   }
 
   // Prices and qualities come from the server, which reads TMDB's watch page for

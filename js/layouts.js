@@ -63,6 +63,21 @@
     return cfg;
   }
   function loadConfig(){
+    // Preview override: if blob preview injected via window.__CINEAURA_PREVIEW__ or sessionStorage cineaura_preview, use it (no persist)
+    try{
+      if(window.__CINEAURA_PREVIEW__ && window.__CINEAURA_PREVIEW__.pages) return mergeMissing(JSON.parse(JSON.stringify(window.__CINEAURA_PREVIEW__)));
+    }catch{}
+    try{
+      const pv=sessionStorage.getItem('cineaura_preview');
+      if(pv){ const j=JSON.parse(pv); if(j&&j.pages) return mergeMissing(j); }
+    }catch{}
+    try{
+      const sp=new URLSearchParams(location.search);
+      if(sp.has('cine_preview')){
+        const pv2=sessionStorage.getItem('cineaura_preview');
+        if(pv2){ const j2=JSON.parse(pv2); if(j2&&j2.pages) return mergeMissing(j2); }
+      }
+    }catch{}
     try{ const raw=localStorage.getItem(LS_KEY); if(raw){ const j=JSON.parse(raw); if(j&&j.pages) return mergeMissing(j); } }catch{}
     // fallback to preset for current style
     const st=getStyle();
@@ -282,8 +297,64 @@
       });
     }catch{}
   }
+  function hasActiveSelection(){
+    try{
+      const sel=window.getSelection&&window.getSelection();
+      if(!sel||sel.isCollapsed||!sel.rangeCount) return false;
+      const txt=sel.toString().trim();
+      return txt.length>0;
+    }catch{ return false; }
+  }
+  function isSelectionInside(container){
+    try{
+      const sel=window.getSelection&&window.getSelection();
+      if(!sel||!sel.rangeCount||sel.isCollapsed) return false;
+      const anchor=sel.anchorNode&&sel.anchorNode.parentElement;
+      const focus=sel.focusNode&&sel.focusNode.parentElement;
+      if(anchor&&container&&container.contains(anchor)) return true;
+      if(focus&&container&&container.contains(focus)) return true;
+      return false;
+    }catch{ return false; }
+  }
+  // Global guard: prevent auto-scroll that destroys selection / jumps to top on button clicks
+  try{
+    const _origScrollIntoView=Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView=function(opts){
+      try{
+        // Allow explicit anchor navigations (e.g., #comments) and back-to-top with data-allow-scroll
+        if(this.hasAttribute&&this.hasAttribute('data-allow-scroll')) return _origScrollIntoView.apply(this, arguments);
+        // If user is selecting text, never scroll
+        if(hasActiveSelection()) return;
+        // Prevent watch page generic hash links that scroll watch to top (handled elsewhere)
+        if(location.pathname.toLowerCase().includes('watch') && this.id==='watch-root') return;
+      }catch{}
+      return _origScrollIntoView.apply(this, arguments);
+    };
+    const _origScrollTo=window.scrollTo.bind(window);
+    window.scrollTo=function(a,b){
+      try{
+        if(hasActiveSelection()) return;
+      }catch{}
+      return _origScrollTo(a,b);
+    };
+    // Also guard window.scroll (alias)
+    const _origScroll=window.scroll.bind(window);
+    window.scroll=function(a,b){
+      try{ if(hasActiveSelection()) return; }catch{}
+      return _origScroll(a,b);
+    };
+  }catch{}
   function applyAll(cfg){
     cfg=cfg||loadConfig();
+    // Do not destroy user text selection — skip DOM reorder while selecting
+    try{
+      if(hasActiveSelection()){
+        const watchRoot=document.getElementById('watch-root');
+        const main=document.querySelector('main.page-main')||document.querySelector('main');
+        if((watchRoot&&isSelectionInside(watchRoot))||(main&&isSelectionInside(main))) return;
+      }
+    }catch{}
+    const _sx=window.scrollX, _sy=window.scrollY;
     const page = detectPage();
     if(page==="home") applyHomeOrder(cfg.pages.home||PRESETS.default.home);
     if(page==="watch") applyWatchOrder(cfg.pages.watch||PRESETS.default.watch);
@@ -297,6 +368,8 @@
     }
     // Apply homepage pins (add extra rail)
     applyPins(cfg.pins||[]);
+    // Restore scroll — layout reorder must not jump to top
+    try{ if(Math.abs(window.scrollY-_sy)>2||Math.abs(window.scrollX-_sx)>2) requestAnimationFrame(()=> window.scrollTo(_sx,_sy)); }catch{}
     // Shortcuts: handled inside profile/dashboard render via event
     document.dispatchEvent(new CustomEvent("cineaura:layout-applied",{detail:{cfg,page}}));
   }
@@ -397,8 +470,13 @@
         applyAll(cfg);
       }
     });
-    // Also observe DOM ready for dashboard/profile which render async
+    // Also observe DOM ready for dashboard/profile which render async — but never during text selection or when user is typing
     const obs=new MutationObserver(()=>{
+      try{
+        if(hasActiveSelection()) return;
+        const ae=document.activeElement;
+        if(ae && (ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'||ae.isContentEditable)) return;
+      }catch{}
       // debounce apply
       clearTimeout(window._lzApplyTimer);
       window._lzApplyTimer=setTimeout(()=>applyAll(), 300);

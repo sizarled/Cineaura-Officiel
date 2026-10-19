@@ -45,8 +45,19 @@
     return allItems.filter(x=>x.kind===activeFilter);
   }
 
+  function hasSelectionIn(el){
+    try{
+      const sel=window.getSelection&&window.getSelection();
+      if(!sel||sel.isCollapsed||!sel.rangeCount) return false;
+      if(!sel.toString().trim()) return false;
+      const a=sel.anchorNode&&sel.anchorNode.parentElement, f=sel.focusNode&&sel.focusNode.parentElement;
+      return (a&&el.contains(a))||(f&&el.contains(f));
+    }catch{ return false; }
+  }
   function renderGrid(){
     const grid = $('#live-grid'); if(!grid) return;
+    // Don't destroy user text selection
+    if(hasSelectionIn(grid)) return;
     const list = filtered().slice(0, visibleCount);
     const more = filtered().length > visibleCount;
     if(!allItems.length){ grid.innerHTML = `<div class="live-loading">${tr('جاري تحميل التحديثات…','Chargement…','Loading updates…')}</div>`; return; }
