@@ -70,10 +70,26 @@
   const CODE_LOCK_MS = 24 * 60 * 60 * 1000;
   const CODE_LOCK_KEY = "cineaura_code_lockout";
   const params = new URLSearchParams(location.search);
-  const movieId = params.get("movie");
-  const tvId = params.get("tv");
+  let movieId = params.get("movie");
+  let tvId = params.get("tv");
+  // Generic fallbacks: ?tmdb= / ?id= / ?tmdb_id= — with optional ?type=movie|tv
+  const genericId = params.get("tmdb") || params.get("id") || params.get("tmdb_id");
+  if (!movieId && !tvId && genericId) {
+    const t = (params.get("type") || params.get("media") || "movie").toLowerCase();
+    if (t === "tv" || t === "series" || t === "show") tvId = genericId;
+    else movieId = genericId;
+  }
+  // Demo fallback for direct visits / editor without ID: TMDB 530 (editable content)
+  // User requested watch page must always show a title, defaulting to tmdb=530.
+  if (!movieId && !tvId) {
+    const hashId = (() => { try { const h = new URLSearchParams(location.hash.replace(/^#/, "")); return h.get("tmdb") || h.get("movie") || h.get("id"); } catch { return null; }})();
+    if (hashId) movieId = hashId;
+    else movieId = "530";
+  }
   const mediaType = tvId ? "tv" : "movie";
   const mediaId = tvId || movieId;
+  const hadExplicitId = Boolean(params.get("movie") || params.get("tv") || params.get("tmdb") || params.get("id") || params.get("tmdb_id"));
+  const isFallbackDemo = !hadExplicitId;
   // Post attribution: links shared inside a post look like
   // /watch.html?movie=123&post=P456 — the watched minutes go to the post owner.
   const postId = params.get("post") || "";
@@ -3361,6 +3377,49 @@
     history.replaceState({}, "", canonicalUrl());
   }
 
+  function renderDemoNotice() {
+    if (!isFallbackDemo) return;
+    if (document.getElementById("watch-demo-notice")) return;
+    const root = document.getElementById("watch-root");
+    if (!root) return;
+    const bar = document.createElement("div");
+    bar.id = "watch-demo-notice";
+    bar.setAttribute("data-ce-ignore","1");
+    bar.className = "glass";
+    bar.style.cssText = "margin:12px 0 14px;padding:12px 14px;border-radius:14px;border:1px dashed rgba(1,180,228,.45);background:rgba(1,180,228,.08);display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;";
+    // Show TMDB 530 demo with quick switch between movie and series and custom ID input
+    bar.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:#01b4e4;color:#032541;font-weight:800;font-size:12px;">تجريبي · TMDB ${escapeHtml(mediaId)} · ${mediaType==="tv"?"مسلسل":"فيلم"}</span>
+        <span style="font-size:13px;color:var(--muted)">صفحة المشاهدة تعرض الآن <b>المعرف الافتراضي 530</b> حتى بدون رابط — يمكنك التعديل مباشرة وإعادة الترتيب في وضع التخصيص.</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <a class="btn btn-sm btn-primary" href="watch.html?movie=530" style="text-decoration:none;">فيلم 530</a>
+        <a class="btn btn-sm btn-ghost" href="watch.html?tv=1399" style="text-decoration:none;">مسلسل تجريبي (TV 1399)</a>
+        <label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;">ID: <input id="demo-tmdb-input" type="number" min="1" placeholder="530" value="${escapeHtml(mediaId)}" style="width:96px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--sub-bg);color:inherit;"></label>
+        <select id="demo-tmdb-type" style="padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--sub-bg);color:inherit;">
+          <option value="movie" ${mediaType==="movie"?"selected":""}>فيلم</option>
+          <option value="tv" ${mediaType==="tv"?"selected":""}>مسلسل</option>
+        </select>
+        <button class="btn btn-sm btn-primary" id="demo-tmdb-go" type="button">عرض</button>
+        <button class="btn btn-sm btn-ghost" id="demo-tmdb-edit" type="button">✎ تعديل</button>
+      </div>`;
+    root.prepend(bar);
+    bar.querySelector("#demo-tmdb-go")?.addEventListener("click", () => {
+      const id = (bar.querySelector("#demo-tmdb-input").value || "").trim() || "530";
+      const type = bar.querySelector("#demo-tmdb-type").value || "movie";
+      const url = `watch.html?${type}=${encodeURIComponent(id)}`;
+      location.href = url;
+    });
+    bar.querySelector("#demo-tmdb-edit")?.addEventListener("click", () => {
+      const id = (bar.querySelector("#demo-tmdb-input").value || "").trim() || "530";
+      const type = bar.querySelector("#demo-tmdb-type").value || "movie";
+      const url = `watch.html?${type}=${encodeURIComponent(id)}&cine_edit=watch`;
+      location.href = url;
+    });
+    bar.querySelector("#demo-tmdb-input")?.addEventListener("keydown", (e) => { if(e.key==="Enter") bar.querySelector("#demo-tmdb-go").click(); });
+  }
+
   // Share row under the player. The shared link keeps its parameters, e.g.
   // /watch.html?tv=34587&season=1&episode=1&Playlist=IDP104059407
   function renderShareRow() {
@@ -3467,9 +3526,12 @@
 
   async function init() {
     bind();
+    // Show demo banner immediately for fallback visits (tmdb 530) so editor is usable
+    try { renderDemoNotice(); } catch {}
     if (!mediaId) {
       $("#page-loader")?.remove();
       $("#watch-root").innerHTML = `<div class="glass page-error"><h2>${t("watch.nothing")}</h2><p>${t("watch.openCat")}</p><a class="btn btn-lg btn-primary" href="./">${t("watch.backHome")}</a></div>`;
+      try { renderDemoNotice(); } catch {}
       return;
     }
 
@@ -3502,6 +3564,9 @@
         await loadWatchMinutes();
         renderInfo();
         await renderWatchExtras();
+        // Keep URL in sync for fallback demo (movie 530) so refresh/bookmark retains the title
+        try { syncUrl(); } catch {}
+        try { renderDemoNotice(); } catch {}
       }
 
       renderCollection();

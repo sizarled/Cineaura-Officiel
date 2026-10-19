@@ -209,8 +209,8 @@
     const cont=document.querySelector(info.container); if(!cont) return;
     // Ensure watch sections are revealed before selecting items
     if(pageKey==="watch") revealWatchIfNeeded(pageKey);
-    let items=[...cont.children].filter(el=> el.matches("section, .trust, .player-wrap, .vw-search, .vw-layout, .mkt-hero, .mkt-layout, .dash-layout, .prof-layout, aside, div") && el.id!=="ce-toolbar" && el.id!=="ce-palette" && el.id!=="ce-hidden-bar");
-    if(!items.length) items=[...cont.children].filter(el=> el.id!=="ce-toolbar");
+    let items=[...cont.children].filter(el=> el.matches("section, .trust, .player-wrap, .vw-search, .vw-layout, .mkt-hero, .mkt-layout, .dash-layout, .prof-layout, aside, div") && el.id!=="ce-toolbar" && el.id!=="ce-palette" && el.id!=="ce-hidden-bar" && el.id!=="watch-demo-notice" && !el.hasAttribute("data-ce-ignore"));
+    if(!items.length) items=[...cont.children].filter(el=> el.id!=="ce-toolbar" && el.id!=="watch-demo-notice" && !el.hasAttribute("data-ce-ignore"));
     // Apply hidden state
     const hidden=getHidden()[pageKey]||[];
     items.forEach(el=>{
@@ -452,5 +452,7 @@
     }
   }
   if(document.readyState==="loading") document.addEventListener("DOMContentLoaded", init); else init();
-  window.CineAuraPageEditor={ openPage:function(pageKey){ const info=PAGE_MAP[pageKey]; if(!info) return; try{ localStorage.setItem(EDIT_KEY, pageKey); }catch{} const url=info.file + (info.file.includes("?")?"&":"?") + "cine_edit="+encodeURIComponent(pageKey); location.href=url; }, isEditMode, currentPageKey, enableEdit, exitEdit };
+  window.CineAuraPageEditor={ openPage:function(pageKey){ const info=PAGE_MAP[pageKey]; if(!info) return; try{ localStorage.setItem(EDIT_KEY, pageKey); }catch{} let extra=""; if(pageKey==="watch"){ // ensure watch editor always has a title to show / reorder — fallback demo TMDB 530 (movie) unless URL already carries an ID
+      try{ const u=new URL(location.href); const hasId=u.searchParams.get("movie")||u.searchParams.get("tv")||u.searchParams.get("tmdb")||u.searchParams.get("id"); if(!hasId) extra="&movie=530"; }catch{ extra="&movie=530"; }
+    } const url=info.file + (info.file.includes("?")?"&":"?") + "cine_edit="+encodeURIComponent(pageKey)+extra; location.href=url; }, isEditMode, currentPageKey, enableEdit, exitEdit };
 })();
