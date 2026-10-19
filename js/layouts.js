@@ -159,6 +159,17 @@
     order.forEach(k=>{ const el=map[k]; if(el) nav.appendChild(el); });
   }
 
+  function applyHidden(cfg, page){
+    // Respect hidden sections saved via editor: hide them outside edit mode
+    try{
+      const hidden = (cfg.hidden && cfg.hidden[page]) || JSON.parse(localStorage.getItem("cineaura_hidden_sections")||"{}")[page] || [];
+      if(!hidden || !hidden.length) return;
+      hidden.forEach(id=>{
+        const el=document.getElementById(id);
+        if(el) { el.hidden=true; el.style.display="none"; }
+      });
+    }catch{}
+  }
   function applyAll(cfg){
     cfg=cfg||loadConfig();
     const page = detectPage();
@@ -168,6 +179,10 @@
     if(page==="market") applyGenericOrder("#mkt-root", cfg.pages.market||PRESETS.default.market, "id");
     if(page==="dashboard") applyDashboardOrder(cfg.pages.dashboard||PRESETS.default.dashboard);
     if(page==="profile") applyProfileOrder(cfg.pages.profile||PRESETS.default.profile);
+    // Apply hidden (skip when in edit mode — editor handles its own visibility)
+    if(!document.documentElement.classList.contains("ce-editing-root")){
+      applyHidden(cfg, page);
+    }
     // Apply homepage pins (add extra rail)
     applyPins(cfg.pins||[]);
     // Shortcuts: handled inside profile/dashboard render via event
