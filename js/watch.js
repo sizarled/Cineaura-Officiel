@@ -3430,7 +3430,7 @@
     bar.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:#01b4e4;color:#032541;font-weight:800;font-size:12px;">تجريبي · TMDB ${escapeHtml(mediaId)} · ${mediaType==="tv"?"مسلسل":"فيلم"}</span>
-        <span style="font-size:13px;color:var(--muted)">صفحة المشاهدة تعرض الآن <b>المعرف الافتراضي 530</b> حتى بدون رابط — يمكنك التعديل مباشرة وإعادة الترتيب في وضع التخصيص.</span>
+        <span style="font-size:13px;color:var(--muted)">صفحة المشاهدة تعرض الآن <b>المعرف الافتراضي 530</b> حتى بدون رابط — عدّل الترتيب من الداشبورد › الإعدادات › <b>تخصيص الموقع → معاينة قبل التطبيق</b>.</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <a class="btn btn-sm btn-primary" href="watch.html?movie=530" style="text-decoration:none;">فيلم 530</a>
@@ -3451,9 +3451,10 @@
       location.href = url;
     });
     bar.querySelector("#demo-tmdb-edit")?.addEventListener("click", () => {
+      // visual editor removed — route to normal watch view; customize via Dashboard → تخصيص الموقع → معاينة
       const id = (bar.querySelector("#demo-tmdb-input").value || "").trim() || "530";
       const type = bar.querySelector("#demo-tmdb-type").value || "movie";
-      const url = `watch.html?${type}=${encodeURIComponent(id)}&cine_edit=watch`;
+      const url = `watch.html?${type}=${encodeURIComponent(id)}`;
       location.href = url;
     });
     bar.querySelector("#demo-tmdb-input")?.addEventListener("keydown", (e) => { if(e.key==="Enter") bar.querySelector("#demo-tmdb-go").click(); });

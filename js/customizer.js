@@ -32,6 +32,7 @@
             <p>رتّب الأقسام، ثبّت أفلامًا، وأنشئ ألوانًا وأيقوناتك الخاصة</p>
           </div>
           <div class="lz-actions">
+            <button class="btn btn-sm" id="lz-preview" type="button" style="border:1px solid var(--cyan);color:var(--cyan)">👁 معاينة قبل التطبيق</button>
             <button class="btn btn-sm btn-ghost" id="lz-preset-save" type="button">حفظ كقالب</button>
             <button class="btn btn-sm btn-primary" id="lz-apply" type="button">تطبيق</button>
             <button class="btn btn-sm btn-ghost lz-x" type="button" aria-label="Close">✕</button>
@@ -60,7 +61,8 @@
         </div>
         <div class="lz-foot">
           <small class="lz-hint">يُحفظ تلقائيًا في جهازك وحسابك. ملفاتك في <code>source/Themes/...</code></small>
-          <div style="display:flex;gap:8px">
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn btn-sm" id="lz-preview-foot" type="button" style="border:1px solid var(--cyan);color:var(--cyan)">👁 معاينة</button>
             <button class="btn btn-sm btn-ghost" id="lz-close" type="button">إغلاق</button>
             <button class="btn btn-sm btn-primary" id="lz-save" type="button">حفظ التعديلات</button>
           </div>
@@ -68,21 +70,22 @@
       </div>`;
     document.body.appendChild(overlay);
     overlay.querySelectorAll(".lz-x, #lz-close").forEach(b=> b.addEventListener("click", close));
-    overlay.addEventListener("mousedown", e=>{ if(e.target===overlay) close(); });
-    // page nav — each row has list view + open page for live drag
+    overlay.addEventListener("mousedown", e=>{ if(e.target===overlay) { if(previewActive) cancelPreview(); close(); }});
+    // page nav — preview-first workflow (visual editor removed 2026-10-19 per user request)
     const nav=overlay.querySelector("#lz-pages");
     Object.keys(PAGE_DEFS).forEach(k=>{
       const wrap=document.createElement("div"); wrap.style.display="grid"; wrap.style.gap="4px";
       const b=document.createElement("button");
       b.type="button"; b.dataset.page=k; b.textContent=PAGE_DEFS[k].label;
       b.style.width="100%";
-      b.addEventListener("click", ()=>{ activePage=k; render(); });
+      b.addEventListener("click", ()=>{ if(previewActive) cancelPreview(); activePage=k; render(); });
       const openBtn=document.createElement("button");
-      openBtn.type="button"; openBtn.textContent="↗ فتح الصفحة للتعديل المباشر";
+      openBtn.type="button"; openBtn.textContent="↗ فتح الصفحة";
       openBtn.className="btn btn-sm btn-ghost"; openBtn.style.fontSize="11px"; openBtn.style.padding="4px 6px";
       openBtn.addEventListener("click", ()=>{
-        if(window.CineAuraPageEditor) window.CineAuraPageEditor.openPage(k);
-        else { try{ localStorage.setItem("cineaura_edit_page",k);}catch{} location.href=(k==="home"?"index.html":k==="watch"?"watch.html":k==="content"?"content.html":k==="market"?"market.html":k==="dashboard"?"dashboard.html":"profile.html")+"?cine_edit="+encodeURIComponent(k); }
+        // visual editor removed — just navigate to page normally (no ?cine_edit)
+        if(previewActive) cancelPreview();
+        location.href=(k==="home"?"index.html":k==="watch"?"watch.html":k==="content"?"content.html":k==="market"?"market.html":k==="dashboard"?"dashboard.html":"profile.html");
       });
       wrap.append(b, openBtn);
       nav.appendChild(wrap);
@@ -92,12 +95,14 @@
     });
     overlay.querySelector("#lz-apply").addEventListener("click", applyCurrent);
     overlay.querySelector("#lz-save").addEventListener("click", saveAll);
+    overlay.querySelector("#lz-preview").addEventListener("click", togglePreview);
+    overlay.querySelector("#lz-preview-foot").addEventListener("click", togglePreview);
     overlay.querySelector("#lz-preset-save").addEventListener("click", saveAsTemplateFile);
     overlay.querySelector("#lz-reset-default").addEventListener("click", ()=>{
-      const L=window.CineAuraLayouts; if(!L) return; const cfg=L.resetToDefault(); applyToast("تمت العودة للافتراضي"); render(); L.applyAll(cfg);
+      const L=window.CineAuraLayouts; if(!L) return; const cfg=L.resetToDefault(); startPreviewWith(cfg, "معاينة الوضع الافتراضي");
     });
     overlay.querySelector("#lz-reset-preset").addEventListener("click", ()=>{
-      const st=getStyle(); const L=window.CineAuraLayouts; if(!L) return; const cfg=L.resetToPreset(st); applyToast(`تم تطبيق تخطيط ${st}`); render(); L.applyAll(cfg);
+      const st=getStyle(); const L=window.CineAuraLayouts; if(!L) return; const cfg=L.resetToPreset(st); startPreviewWith(cfg, `معاينة تنسيق ${st}`);
     });
     // presets mini (style-based layout presets)
     const mini=overlay.querySelector("#lz-presets-mini");
@@ -107,7 +112,13 @@
       const b=document.createElement("button");
       b.type="button"; b.className="lz-preset"; b.style.padding="8px";
       b.innerHTML=`<b>${preset?preset.label:s}</b><small style="display:block;opacity:.7">${s}</small>`;
-      b.addEventListener("click",()=>{ const L2=window.CineAuraLayouts; const cfg=L2.resetToPreset(s); L2.applyAll(cfg); applyToast(`تم تطبيق ${s}`); render(); });
+      // preview-first: apply temp, user must confirm via preview bar
+      b.addEventListener("click",()=>{ const tempCfg=(()=>{
+        const c=JSON.parse(JSON.stringify(getConfig())); const L2=window.CineAuraLayouts; const preset2=L2&&L2.PRESETS[s];
+        if(preset2){ Object.keys(preset2).forEach(pk=>{ if(pk==="label"||pk==="desc") return; c.pages[pk]=preset2[pk].slice(); }); c.preset=s; }
+        return c; })();
+        startPreviewWith(tempCfg, `معاينة مظهر ${s}`);
+      });
       mini.appendChild(b);
     });
     return overlay;
@@ -137,14 +148,14 @@
     // ensure all ids present (include any missing)
     defIds.forEach(id=>{ if(!order.includes(id)) order.push(id); });
     const banner=document.createElement("div"); banner.className="lz-panel"; banner.style.borderColor="var(--cyan)"; banner.style.background="color-mix(in srgb, var(--cyan) 8%, var(--surface))";
-    banner.innerHTML=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span>📄</span><b>${PAGE_DEFS[page].label}</b><span class="lz-hint" style="flex:1">عند النقر على الصفحة تفتح ويمكنك سحب أقسامها مباشرة لإعادة الترتيب، أو إضافة اختصارات من الداشبورد/البروفايل/الماركت/الايبي تي في</span><button class="btn btn-sm btn-primary" type="button" id="lz-open-live">فتح الصفحة للتعديل المباشر ↗</button></div>`;
+    banner.innerHTML=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span>📄</span><b>${PAGE_DEFS[page].label}</b><span class="lz-hint" style="flex:1">رتّب هنا ثم اضغط <b>👁 معاينة</b> لترى النتيجة قبل الحفظ. المحرّر المرئي المباشر أُزيل — استخدم المعاينة ثم تطبيق.</span><button class="btn btn-sm btn-ghost" type="button" id="lz-open-live">↗ فتح الصفحة</button></div>`;
     root.appendChild(banner);
     banner.querySelector("#lz-open-live").onclick=()=>{
-      if(window.CineAuraPageEditor) window.CineAuraPageEditor.openPage(page);
-      else { try{ localStorage.setItem("cineaura_edit_page",page);}catch{} location.href=(page==="home"?"index.html":page==="watch"?"watch.html":page==="content"?"content.html":page==="market"?"market.html":page==="dashboard"?"dashboard.html":"profile.html")+"?cine_edit="+encodeURIComponent(page); }
+      if(previewActive) cancelPreview();
+      location.href=(page==="home"?"index.html":page==="watch"?"watch.html":page==="content"?"content.html":page==="market"?"market.html":page==="dashboard"?"dashboard.html":"profile.html");
     };
     const panel=document.createElement("div"); panel.className="lz-panel";
-    panel.innerHTML=`<h4>ترتيب أقسام — ${PAGE_DEFS[page].label}</h4><p class="lz-hint">اسحب هنا لإعادة الترتيب (معاينة سريعة) أو افتح الصفحة للسحب المباشر على نفس الصفحة مع لوحة اختصارات الداشبورد/البروفايل/الماركت/الايبي تي في.</p>`;
+    panel.innerHTML=`<h4>ترتيب أقسام — ${PAGE_DEFS[page].label}</h4><p class="lz-hint">اسحب لإعادة الترتيب، ثم اضغط <b>معاينة قبل التطبيق</b> لمشاهدة التغيير مباشرة دون حفظ. إن أعجبتك المعاينة اضغط <b>تطبيق</b> أو <b>حفظ التعديلات</b>.</p>`;
     const list=document.createElement("div"); list.className="lz-list"; list.id="lz-order-list";
     order.forEach(id=>{
       const row=document.createElement("div"); row.className="lz-item"; row.draggable=true; row.dataset.id=id;
@@ -158,14 +169,19 @@
     // drop handling
     list.addEventListener("dragover", e=>{ e.preventDefault(); const dragging=list.querySelector(".dragging"); const after=getDragAfter(list, e.clientY); if(!dragging) return; if(after==null) list.appendChild(dragging); else list.insertBefore(dragging, after); });
     panel.appendChild(list);
-    const acts=document.createElement("div"); acts.style.display="flex"; acts.style.gap="8px";
+    const acts=document.createElement("div"); acts.style.display="flex"; acts.style.gap="8px"; acts.style.flexWrap="wrap";
+    const btnPreview=document.createElement("button"); btnPreview.className="btn btn-sm"; btnPreview.style.border="1px solid var(--cyan)"; btnPreview.style.color="var(--cyan)"; btnPreview.textContent="👁 معاينة الترتيب"; btnPreview.onclick=()=>{
+      const newOrder=[...list.querySelectorAll(".lz-item")].map(el=>el.dataset.id);
+      const c=collectPendingConfig(); c.pages[page]=newOrder; c.customized=true;
+      startPreviewWith(c, "معاينة ترتيب "+PAGE_DEFS[page].label);
+    };
     const btnSave=document.createElement("button"); btnSave.className="btn btn-sm btn-primary"; btnSave.textContent="حفظ الترتيب"; btnSave.onclick=()=>{
       const newOrder=[...list.querySelectorAll(".lz-item")].map(el=>el.dataset.id);
-      const c=getConfig(); c.pages[page]=newOrder; c.customized=true;
-      window.CineAuraLayouts.saveConfig(c); window.CineAuraLayouts.applyAll(c);
-      applyToast("تم حفظ الترتيب");
+      const c=collectPendingConfig(); c.pages[page]=newOrder; c.customized=true;
+      if(previewActive) { previewTemp=c; confirmPreview(); }
+      else { window.CineAuraLayouts.saveConfig(c); window.CineAuraLayouts.applyAll(c); applyToast("تم حفظ الترتيب"); }
     };
-    acts.appendChild(btnSave);
+    acts.append(btnPreview, btnSave);
     panel.appendChild(acts);
     root.appendChild(panel);
 
@@ -178,8 +194,8 @@
       const arr=p[page]; if(!arr) return;
       b.innerHTML=`<div class="lz-mini">${k}</div><b>${p.label}</b><p>${p.desc}</p>`;
       b.onclick=()=>{
-        const c=getConfig(); c.pages[page]=arr.slice(); c.preset=k; window.CineAuraLayouts.saveConfig(c); window.CineAuraLayouts.applyAll(c);
-        applyToast(`تطبيق ${k} على ${page}`); render();
+        const c=collectPendingConfig(); c.pages[page]=arr.slice(); c.preset=k;
+        startPreviewWith(c, `معاينة ${k} — ${page}`);
       };
       grid.appendChild(b);
     });
@@ -227,14 +243,15 @@
       });
     });
     const acts=document.createElement("div"); acts.style.display="flex"; acts.style.gap="8px"; acts.style.flexWrap="wrap";
-    const btnPreview=document.createElement("button"); btnPreview.className="btn btn-sm btn-ghost"; btnPreview.textContent="معاينة";
-    btnPreview.onclick=()=> previewCustomStyle(collectColors(panel));
+    const btnPreview=document.createElement("button"); btnPreview.className="btn btn-sm"; btnPreview.style.border="1px solid var(--cyan)"; btnPreview.style.color="var(--cyan)"; btnPreview.textContent="👁 معاينة قبل التطبيق";
+    btnPreview.onclick=()=> startStylePreviewWith(collectColors(panel), "معاينة ألوان مخصصة");
     const btnSave=document.createElement("button"); btnSave.className="btn btn-sm btn-primary"; btnSave.textContent="حفظ كملف Style";
     btnSave.onclick=()=> saveStyleFile(collectColors(panel));
-    const btnApply=document.createElement("button"); btnApply.className="btn btn-sm btn-ghost"; btnApply.textContent="تطبيق محلي";
+    const btnApply=document.createElement("button"); btnApply.className="btn btn-sm btn-ghost"; btnApply.textContent="تطبيق وحفظ محلي";
     btnApply.onclick=()=>{
-      const c=getConfig(); c.customStyle=collectColors(panel); window.CineAuraLayouts.saveConfig(c);
-      previewCustomStyle(c.customStyle); applyToast("تم تطبيق الألوان محليًا");
+      const c=collectPendingConfig(); c.customStyle=collectColors(panel);
+      if(previewActive && previewTemp && previewTemp.customStyle) confirmPreview();
+      else { window.CineAuraLayouts.saveConfig(c); previewCustomStyle(c.customStyle); applyToast("تم تطبيق الألوان وحفظها"); }
     };
     acts.append(btnPreview, btnApply, btnSave);
     panel.appendChild(acts);
@@ -260,7 +277,7 @@
           ios:{primary:"#007aff",accent:"#34c759",bg:"#000000",text:"#ffffff",muted:"#59595f",surface:"#1c1c1e"},
         };
         const col=map[k]||map.default;
-        previewCustomStyle(col);
+        startStylePreviewWith(col, `معاينة ${k}`);
         // update inputs
         Object.entries(col).forEach(([kk,v])=>{
           const inp=panel.querySelector(`input[data-key="${kk}"]`); if(inp && v.startsWith("#")) inp.value=v;
@@ -503,20 +520,141 @@
       }
     }catch{}
   }
+  // ----- preview-before-apply (طلب المستخدم 2026-10-19) -----
+  let previewActive=false, previewOriginal=null, previewTemp=null, previewBar=null, previewStyleBackup=null, previewStyleOriginal=null;
+  function collectPendingConfig(){
+    const base=getConfig();
+    try{ return JSON.parse(JSON.stringify(base)); }catch{ return base; }
+  }
+  function ensurePreviewBar(){
+    if(previewBar) return previewBar;
+    previewBar=document.createElement("div");
+    previewBar.id="lz-preview-bar";
+    previewBar.style.cssText="position:fixed;top:0;left:0;right:0;z-index:99999;display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;padding:8px 12px;background:color-mix(in srgb, var(--cyan, #00d4ff) 14%, #0b0f14);border-bottom:2px solid var(--cyan, #00d4ff);backdrop-filter:blur(8px);font-size:13px";
+    previewBar.innerHTML=`<span id="lz-preview-label" style="font-weight:700">👁 وضع المعاينة — التغييرات غير محفوظة بعد</span>
+      <button class="btn btn-sm btn-primary" id="lz-preview-confirm" type="button">✓ تطبيق وحفظ</button>
+      <button class="btn btn-sm btn-ghost" id="lz-preview-cancel" type="button" style="border:1px solid rgba(255,255,255,.35)">✕ إلغاء المعاينة</button>`;
+    document.body.appendChild(previewBar);
+    const pad=document.createElement("style"); pad.id="lz-preview-pad";
+    pad.textContent="html.lz-preview{padding-top:48px !important} html.lz-preview .lz-overlay{top:48px}";
+    document.head.appendChild(pad);
+    previewBar.querySelector("#lz-preview-confirm").onclick=confirmPreview;
+    previewBar.querySelector("#lz-preview-cancel").onclick=cancelPreview;
+    return previewBar;
+  }
+  function startPreviewWith(tempCfg, label){
+    try{
+      previewOriginal=collectPendingConfig();
+      previewTemp=tempCfg;
+      const L=window.CineAuraLayouts; if(!L||!L.applyAll) return applyToast("المُخصص غير جاهز");
+      L.applyAll(tempCfg);
+      ensurePreviewBar();
+        if(label) previewBar.querySelector("#lz-preview-label").textContent="👁 "+label+" — غير محفوظة، اضغط تطبيق أو إلغاء";
+      previewBar.hidden=false;
+      document.documentElement.classList.add("lz-preview");
+      previewActive=true;
+      updatePreviewBtns();
+      applyToast("🔍 معاينة — لم يُحفظ بعد. استخدم شريط المعاينة للتأكيد");
+      if(overlay){ const h=overlay.querySelector("#lz-preview"); if(h) h.textContent="✕ إلغاء المعاينة"; const f=overlay.querySelector("#lz-preview-foot"); if(f) f.textContent="✕ إلغاء المعاينة"; }
+    }catch(e){ console.warn(e); }
+  }
+  function startStylePreviewWith(colors, label){
+    try{
+      const tag=document.getElementById("lz-custom-preview");
+      previewStyleBackup= tag ? tag.textContent : "";
+      previewStyleOriginal=collectPendingConfig().customStyle || null;
+      previewCustomStyle(colors);
+      ensurePreviewBar();
+      if(label) previewBar.querySelector("#lz-preview-label").textContent="👁 "+label+" — غير محفوظة، اضغط تطبيق أو إلغاء";
+      previewBar.hidden=false;
+      document.documentElement.classList.add("lz-preview");
+      previewActive=true;
+      // store temp style for confirm
+      previewTemp=collectPendingConfig(); previewTemp.customStyle=colors;
+      updatePreviewBtns();
+      applyToast("🔍 معاينة ألوان — لم تُحفظ بعد");
+      if(overlay){ const h=overlay.querySelector("#lz-preview"); if(h) h.textContent="✕ إلغاء المعاينة"; const f=overlay.querySelector("#lz-preview-foot"); if(f) f.textContent="✕ إلغاء المعاينة"; }
+    }catch(e){ console.warn(e); }
+  }
+  function togglePreview(){
+    if(previewActive) return cancelPreview();
+    const cfg=collectPendingConfig();
+    // merge list order if templates panel visible
+    const list=document.getElementById("lz-order-list");
+    if(list && activeTab==="templates"){
+      const page=activePage; const newOrder=[...list.querySelectorAll(".lz-item")].map(el=>el.dataset.id);
+      if(newOrder.length){ cfg.pages[page]=newOrder; cfg.customized=true; }
+    }
+    startPreviewWith(cfg, "معاينة التعديلات");
+  }
+  function updatePreviewBtns(){
+    if(!overlay) return;
+    const h=overlay.querySelector("#lz-preview"); const f=overlay.querySelector("#lz-preview-foot");
+    const txt=previewActive ? "✕ إلغاء المعاينة" : "👁 معاينة قبل التطبيق";
+    if(h) h.textContent=txt; if(f) f.textContent=txt.replace(" قبل التطبيق","");
+  }
+  function confirmPreview(){
+    try{
+      if(previewTemp){
+        const L=window.CineAuraLayouts; L.saveConfig(previewTemp); L.applyAll(previewTemp);
+        if(previewTemp.customStyle) previewCustomStyle(previewTemp.customStyle);
+        applyToast("✓ تم التطبيق والحفظ");
+      } else if(previewStyleBackup!==null){
+        const cfg=collectPendingConfig(); cfg.customStyle=JSON.parse(JSON.stringify(previewTemp && previewTemp.customStyle ? previewTemp.customStyle : {}));
+        // generic fallback: save current style tag colors
+        const curTag=document.getElementById("lz-custom-preview");
+        if(curTag){
+          // colors already previewed — persist
+          const L=window.CineAuraLayouts; const c=collectPendingConfig(); // need to extract from tag? use stored previewTemp
+          if(previewTemp && previewTemp.customStyle){ c.customStyle=previewTemp.customStyle; L.saveConfig(c); }
+        }
+        applyToast("✓ تم التطبيق");
+      }
+      teardownPreview();
+      render();
+    }catch(e){ console.warn(e); teardownPreview(); }
+  }
+  function cancelPreview(){
+    try{
+      if(previewOriginal){ const L=window.CineAuraLayouts; if(L) L.applyAll(previewOriginal); }
+      if(previewStyleBackup!==null){
+        const tag=document.getElementById("lz-custom-preview");
+        if(tag) tag.textContent=previewStyleBackup;
+        else if(previewStyleBackup===""){ const t=document.getElementById("lz-custom-preview"); if(t) t.remove(); }
+      } else if(previewStyleOriginal){
+        previewCustomStyle(previewStyleOriginal);
+      }
+      if(previewOriginal || previewStyleBackup!==null) applyToast("↩ أُلغيت المعاينة");
+      teardownPreview();
+    }catch(e){ teardownPreview(); }
+  }
+  function teardownPreview(){
+    previewActive=false; previewOriginal=null; previewTemp=null; previewStyleBackup=null; previewStyleOriginal=null;
+    if(previewBar) previewBar.hidden=true;
+    document.documentElement.classList.remove("lz-preview");
+    updatePreviewBtns();
+  }
   function applyCurrent(){
-    const cfg=getConfig(); window.CineAuraLayouts.applyAll(cfg); applyToast("تم التطبيق");
+    const cfg=collectPendingConfig();
+    // if preview active, confirm via preview path to keep UX consistent
+    if(previewActive){ previewTemp=cfg; return confirmPreview(); }
+    window.CineAuraLayouts.applyAll(cfg); applyToast("تم التطبيق (مؤقت) — اضغط معاينة ثم حفظ للتثبيت");
   }
   function saveAll(){
-    const cfg=getConfig(); window.CineAuraLayouts.saveConfig(cfg); window.CineAuraLayouts.applyAll(cfg); applyToast("تم حفظ التخصيص");
+    const cfg=collectPendingConfig();
+    if(previewActive){ previewTemp=cfg; return confirmPreview(); }
+    window.CineAuraLayouts.saveConfig(cfg); window.CineAuraLayouts.applyAll(cfg); applyToast("تم حفظ التخصيص");
   }
   function applyToast(msg){
     const C=window.CineAura; if(C&&C.toast) C.toast(msg); else console.log(msg);
   }
   function open(){
     buildOverlay(); render(); overlay.hidden=false; document.documentElement.classList.add("lz-lock");
+    updatePreviewBtns();
   }
   function close(){
-    if(!overlay||overlay.hidden) return; overlay.hidden=true; document.documentElement.classList.remove("lz-lock");
+    if(!overlay||overlay.hidden) return; if(previewActive) { /* keep preview alive after closing customizer so user can see page */ }
+    overlay.hidden=true; document.documentElement.classList.remove("lz-lock");
   }
   function attachDashboardButtons(){
     // Dashboard settings page — add two buttons next to existing save
