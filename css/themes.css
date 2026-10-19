@@ -187,7 +187,7 @@ html[data-style="instagram"]{
   --shadow:0 0 0 1px var(--line); --header-h:60px; --scroll:#555;
 }
 html[data-style="instagram"][data-theme="day"]{
-  --ink:#fafafa; --text:#000000; --muted:#8e8e8e; --line:#dbdbdb;
+  --ink:#fafafa; --text:#1a1a1a; --muted:#575757; --line:#dbdbdb;
   --surface:#ffffff; --sub-bg:#efefef; --input-bg:#efefef; --header-bg:#ffffff; --header-bg-scrolled:#ffffff;
   --mobile-bg:#ffffff; --card-bg:#fafafa; --scroll:#c7c7c7;
 }
@@ -329,7 +329,7 @@ html[data-style="appletv"]{
   --shadow:0 10px 30px rgba(0,0,0,.55); --header-h:52px; --scroll:#48484a;
 }
 html[data-style="appletv"][data-theme="day"]{
-  --ink:#f5f5f7; --text:#1d1d1f; --muted:#6e6e73; --line:#d2d2d7;
+  --ink:#f5f5f7; --text:#1d1d1f; --muted:#525255; --line:#d2d2d7;
   --surface:#ffffff; --sub-bg:#f5f5f7; --input-bg:#ffffff; --header-bg:rgba(250,250,252,.88); --header-bg-scrolled:rgba(255,255,255,.9);
   --mobile-bg:#ffffff; --card-bg:#f5f5f7;
 }
@@ -603,7 +603,7 @@ html[data-style="win11"] .footer{ background:var(--surface); border-top:1px soli
    ========================================================== */
 html[data-style="macos"]{
   --sans:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Helvetica,Arial,sans-serif; --serif:var(--sans);
-  --ink:#ececef; --text:#1d1d1f; --muted:#6e6e73; --line:#d2d2d7;
+  --ink:#ececef; --text:#1d1d1f; --muted:#4e4e52; --line:#d2d2d7;
   --surface:rgba(255,255,255,.72); --sub-bg:rgba(255,255,255,.9); --input-bg:#ffffff; --header-bg:rgba(255,255,255,.72); --header-bg-scrolled:rgba(255,255,255,.86);
   --mobile-bg:rgba(255,255,255,.92); --card-bg:#ffffff; --cyan:#007aff; --cyan-2:#007aff; --green:#34c759; --btn-blue:#007aff; --btn-blue-h:#0066d6; --red:#ff3b30;
   --shadow:0 8px 24px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.08); --header-h:28px; --scroll:#c7c7cc;
@@ -737,7 +737,7 @@ html[data-style="ios"]{
   --shadow:0 10px 30px rgba(0,0,0,.45); --header-h:44px; --scroll:#48484a;
 }
 html[data-style="ios"][data-theme="day"]{
-  --ink:#f2f2f7; --text:#000000; --muted:#8e8e93; --line:#c6c6c8;
+  --ink:#f2f2f7; --text:#000000; --muted:#59595f; --line:#c6c6c8;
   --surface:rgba(255,255,255,.92); --sub-bg:#ffffff; --input-bg:#ffffff; --header-bg:rgba(249,249,249,.86); --header-bg-scrolled:rgba(255,255,255,.94);
   --mobile-bg:#ffffff; --card-bg:#ffffff; --scroll:#c7c7cc;
 }
@@ -795,3 +795,49 @@ html[data-style="android"] .mobile-menu,
 html[data-style="ios"] .mobile-menu{
   background:var(--surface); border:1px solid var(--line); backdrop-filter:none;
 }
+
+/* ---- Day-mode readability safety net: ensure gray text meets contrast on white ---- */
+html[data-theme="day"][data-style="instagram"]{ --muted:#575757; }
+html[data-theme="day"][data-style="ios"]{ --muted:#59595f; --line:#c2c2c8; }
+html[data-theme="day"][data-style="youtube"]{ --muted:#555555; }
+html[data-theme="day"][data-style="appletv"]{ --muted:#525255; }
+html[data-theme="day"][data-style="macos"]{ --muted:#4e4e52; }
+html[data-theme="day"] .muted{ color:var(--muted); }
+html[data-theme="day"] :is(.sset-hint,.lead,.section-head p,.kicker,.eyebrow){ color:var(--muted); }
+html[data-theme="day"] ::placeholder{ color:var(--muted); opacity:1; }
+html[data-theme="day"][data-style="instagram"] .glass,
+html[data-theme="day"][data-style="instagram"] .search-box,
+html[data-theme="day"][data-style="instagram"] .iptv-card,
+html[data-theme="day"][data-style="instagram"] .plan{ border-color:#e5e5e5; }
+html[data-theme="day"][data-style="ios"] .glass{ border-color:rgba(0,0,0,.08); }
+
+/* Extra day opacity boosts for glass themes that used translucent white over white -> washed look */
+html[data-theme="day"][data-style="macos"]{ --surface:rgba(255,255,255,.92); --header-bg:rgba(255,255,255,.88); --header-bg-scrolled:#ffffff; }
+html[data-theme="day"][data-style="win7"]{ --surface:rgba(255,255,255,.96); --sub-bg:#f0f6ff; --header-bg:linear-gradient(180deg,#5aa8f0 0%,#2a7bd8 50%,#1a5fb8 100%); }
+html[data-theme="day"][data-style="win11"]{ --surface:#ffffff; }
+html[data-theme="day"][data-style="android"]{ --surface:#ffffff; }
+html[data-theme="day"][data-style="ios"]{ --surface:#ffffff; --header-bg:#ffffff; --header-bg-scrolled:#ffffff; }
+html[data-theme="day"][data-style="appletv"]{ --surface:#ffffff; --header-bg:rgba(255,255,255,.96); --header-bg-scrolled:#ffffff; }
+html[data-theme="day"][data-style="youtube"]{ --sub-bg:#f2f2f2; }
+html[data-theme="day"][data-style="instagram"]{ --sub-bg:#f5f5f5; }
+
+/* Ensure day inputs and placeholders are readable */
+html[data-theme="day"] input::placeholder,
+html[data-theme="day"] textarea::placeholder,
+html[data-theme="day"] select{ color:var(--muted); }
+html[data-theme="day"] input, html[data-theme="day"] select, html[data-theme="day"] textarea{ border-color:var(--line); }
+
+/* Force muted to meet AA on white: minimum #5a5a5a */
+html[data-theme="day"]{ --a11y-muted:#5a6578; }
+html[data-theme="day"][data-style="default"]{ --muted:#4a6578; }
+
+/* Fix header contrast for day themes where header stays dark over light page */
+html[data-theme="day"][data-style="prime"] .nav a{ color:#e8f6ff; }
+html[data-theme="day"][data-style="prime"] .nav a:hover{ color:#ffffff; background:rgba(255,255,255,.12); }
+html[data-theme="day"][data-style="prime"] .logo-word span{ color:#ffffff; }
+html[data-theme="day"][data-style="win8"] .nav a{ color:#ffffff; }
+html[data-theme="day"][data-style="win8"] .nav a:hover{ background:rgba(255,255,255,.18); }
+html[data-theme="day"][data-style="win8"] .logo-word{ color:#ffffff; }
+html[data-theme="day"][data-style="win8"] .logo-mark::before,
+html[data-theme="day"][data-style="win8"] .logo-mark::after{ background:#ffffff; }
+html[data-theme="day"][data-style="win8"] .hamburger{ border-color:rgba(255,255,255,.4); }
